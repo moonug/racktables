@@ -178,6 +178,7 @@ class PureFunctionTest extends RTTestCase
 			array ('makeSetSQL', array ('one'), '`one` = ?'),
 			array ('makeSetSQL', array ('one', 'two'), '`one` = ?, `two` = ?'),
 			array ('makeSetSQL', array ('one', 'two', 'three'), '`one` = ?, `two` = ?, `three` = ?'),
+			array ('makeSetSQL', array ('table1.column', 'table2.column'), 'table1.`column` = ?, table2.`column` = ?'),
 
 			array
 			(
@@ -1756,6 +1757,12 @@ class PureFunctionTest extends RTTestCase
 				'OR',
 				'`a` IN(?, ?, ?) OR `b` IN(?, ?, ?, ?)',
 				array ('a.1', 'a.2', 'a.3', 0, 10, 20, 30)
+			),
+			array (
+				array ('table1.column' => 1, 'table2.column' => 2),
+				'AND',
+				'table1.`column` = ? AND table2.`column` = ?',
+				array (1, 2)
 			),
 		);
 	}

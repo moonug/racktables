@@ -171,7 +171,7 @@ $SQLSchema = array
 			'name' => 'name',
 			'location_id' => 'location_id',
 			'location_name' => 'location_name',
-			'rackc' => '(select count(Rack.id) from Rack where row_id = Row.id)',
+			'rackc' => '(select count(Rack.id) from Rack where row_id = `Row`.id)',
 		),
 		'keycolumn' => 'id',
 		'ordcolumns' => array ('location_name', 'name'),
@@ -191,6 +191,19 @@ $SQLSchema = array
 		),
 		'keycolumn' => 'id',
 		'ordcolumns' => array ('name'),
+	),
+	'vlandomain' => array
+	(
+		'table' => 'VLANDomain',
+		'columns' => array
+		(
+			'id' => 'id',
+			'group_id' => 'group_id',
+			'description' => 'description',
+			'subdomc' => '(SELECT COUNT(vd.id) FROM VLANDomain vd WHERE vd.group_id = VLANDomain.id)',
+		),
+		'keycolumn' => 'id',
+		'ordcolumns' => array ('description'),
 	),
 	'vst' => array
 	(
@@ -548,6 +561,12 @@ function listCells ($realm, $parent_id = 0)
 	if ($realm == 'ipv4net' || $realm == 'ipv6net')
 		fillIPNetsCorrelation ($ret);
 
+	global $realmRegistry;
+	if (is_array($realmRegistry) && array_key_exists($realm, $realmRegistry) &&
+		is_callable($realmRegistry[$realm]['listCells'])) {
+		$ret = $realmRegistry[$realm]['listCells']($ret, $parent_id);
+	}
+
 	foreach (array_keys ($ret) as $entity_id)
 	{
 		$entity = &$ret[$entity_id];
@@ -671,7 +690,13 @@ function spotEntity ($realm, $id, $ignore_cache = FALSE)
 		break;
 	}
 
-	$ret['atags'] = generateEntityAutoTags ($ret);
+	global $realmRegistry;
+	if (is_array($realmRegistry) && array_key_exists($realm, $realmRegistry) &&
+		is_callable($realmRegistry[$realm]['spotEntity'])) {
+		$ret = $realmRegistry[$realm]['spotEntity']($ret);
+	}
+
+	$ret['atags'] = callHook ('generateEntityAutoTags', $ret);
 	if (! $ignore_cache)
 		$entityCache['partial'][$realm][$id] = $ret;
 	return $ret;
@@ -774,6 +799,20 @@ function amplifyCell (&$record, $dummy = NULL)
 
 		$record['isDeletable'] = (count ($rows) || count ($mounted_objects)) ? FALSE : TRUE;
 		$record['mountedObjects'] = array_keys ($mounted_objects);
+		break;
+	case 'vlandomain':
+		$record['vlanlist'] = getDomainVLANList ($record['id']);
+		$record['switchlist'] = array();
+		$result = usePreparedSelectBlade
+		(
+			'SELECT object_id, template_id, last_errno, out_of_sync, ' .
+			'TIMESTAMPDIFF(SECOND, last_change, NOW()) AS age_seconds ' .
+			'FROM VLANSwitch WHERE domain_id = ? ORDER BY object_id',
+			array ($record['id'])
+		);
+		while ($row = $result->fetch (PDO::FETCH_ASSOC))
+			$record['switchlist'][$row['object_id']] = $row;
+		unset ($result);
 		break;
 	case 'vst':
 		$record['rules'] = array();
@@ -985,6 +1024,7 @@ function commitAddObject ($new_name, $new_label, $new_type_id, $new_asset_no, $t
 	if ($realm == 'object')
 		executeAutoPorts ($object_id);
 	recordObjectHistory ($object_id);
+	callHook("commitAddObjectAfter_hook", $object_id, $new_name, $new_label, $new_type_id, $new_asset_no);
 	return $object_id;
 }
 
@@ -992,6 +1032,7 @@ function commitRenameObject ($object_id, $new_name)
 {
 	$type_id = getObjectType ($object_id);
 	checkObjectNameUniqueness ($new_name, $type_id, $object_id);
+	callHook("commitRenameObjectBefore_hook", $object_id, $new_name);
 	usePreparedUpdateBlade
 	(
 		'Object',
@@ -1383,6 +1424,7 @@ function releaseFiles ($entity_realm, $entity_id)
 // There are times when you want to delete all traces of an object
 function commitDeleteObject ($object_id)
 {
+	callHook("commitDeleteObjectBefore_hook", $object_id);
 	// Reset most of stuff
 	commitResetObject ($object_id);
 	// Object itself
@@ -1399,6 +1441,8 @@ function commitDeleteObject ($object_id)
 
 function commitResetObject ($object_id)
 {
+	callHook("commitResetObjectBefore_hook", $object_id);
+
 	releaseFiles ('object', $object_id);
 	destroyTagsForEntity ('object', $object_id);
 	usePreparedDeleteBlade ('IPv4LB', array ('object_id' => $object_id));
@@ -1678,8 +1722,14 @@ function commitAddPort ($object_id, $port_name, $port_type_id, $port_label, $por
 	$db_l2address = l2addressForDatabase ($port_l2address);
 	list ($iif_id, $oif_id) = parsePortIIFOIF ($port_type_id);
 	// The conditional table locking is less relevant now due to replaceObjectPorts().
-	if ($db_l2address != '')
-		$dbxlink->exec ('LOCK TABLES Port WRITE');
+	if ($db_l2address != '') {
+		global $port_ops_locking_tables;
+		$lock_str = 'LOCK TABLES Port WRITE';
+		foreach ($port_ops_locking_tables as $table => $lock_type) {
+			$lock_str .= ", $table $lock_type";
+		}
+		$dbxlink->exec ($lock_str);
+	}
 	try
 	{
 		assertUniqueL2Addresses (array ($db_l2address), $object_id);
@@ -1702,6 +1752,7 @@ function commitAddPort ($object_id, $port_name, $port_type_id, $port_label, $por
 // first and only then start making any calls to this function.
 function commitAddPortReal ($object_id, $port_name, $iif_id, $oif_id, $port_label, $db_l2address)
 {
+	callHook('commitAddPortRealBefore_hook', $object_id, $port_name, $iif_id, $oif_id, $port_label, $db_l2address);
 	usePreparedInsertBlade
 	(
 		'Port',
@@ -1730,8 +1781,14 @@ function commitUpdatePort ($object_id, $port_id, $port_name, $port_type_id, $por
 	global $dbxlink;
 	$db_l2address = l2addressForDatabase ($port_l2address);
 	list ($iif_id, $oif_id) = parsePortIIFOIF ($port_type_id);
-	if ($db_l2address != '')
-		$dbxlink->exec ('LOCK TABLES Port WRITE, PortLog WRITE');
+	if ($db_l2address != '') {
+		global $port_ops_locking_tables;
+		$lock_str = 'LOCK TABLES Port WRITE, PortLog WRITE';
+		foreach ($port_ops_locking_tables as $table => $lock_type) {
+			$lock_str .= ", $table $lock_type";
+		}
+		$dbxlink->exec ($lock_str);
+	}
 	try
 	{
 		assertUniqueL2Addresses (array ($db_l2address), $object_id);
@@ -1750,6 +1807,7 @@ function commitUpdatePort ($object_id, $port_id, $port_name, $port_type_id, $por
 // The comment about commitAddPortReal() also applies here.
 function commitUpdatePortReal ($object_id, $port_id, $port_name, $iif_id, $oif_id, $port_label, $db_l2address, $port_reservation_comment)
 {
+	callHook('commitUpdatePortRealBefore_hook', $object_id, $port_id, $port_name, $iif_id, $oif_id, $port_label, $db_l2address, $port_reservation_comment);
 	$old_reservation_comment = getPortReservationComment ($port_id);
 	$port_reservation_comment = nullIfEmptyStr ($port_reservation_comment);
 	usePreparedUpdateBlade
@@ -1858,11 +1916,15 @@ function linkPorts ($porta, $portb, $cable = NULL)
 		$pair_id = ($row['id'] == $porta ? $portb : $porta);
 		addPortLogEntry ($pair_id, sprintf ("linked to %s %s", $row['obj_name'], $row['port_name']));
 	}
+	callHook('linkPortsAfter_hook', $porta, $portb, $cable);
+
 	return $ret;
 }
 
 function commitUpdatePortLink ($port_id, $cable = NULL)
 {
+	callHook('commitUpdatePortLinkBefore_hook', $port_id, $cable);
+
 	return usePreparedUpdateBlade
 	(
 		'Link',
@@ -1895,6 +1957,7 @@ function commitUnlinkPort ($port_id)
 		addPortLogEntry ($row['id_a'], sprintf ("unlinked from %s %s", $row['obj_name_b'], $row['port_name_b']));
 		addPortLogEntry ($row['id_b'], sprintf ("unlinked from %s %s", $row['obj_name_a'], $row['port_name_a']));
 	}
+	callHook('commitUnlinkPortBefore_hook', $port_id);
 
 	// remove existing link
 	return usePreparedDeleteBlade ('Link', array ('porta' => $port_id, 'portb' => $port_id), 'OR');
@@ -2448,8 +2511,14 @@ function scanIPv6Space ($pairlist, $filter_flags = IPSCAN_ANY)
 	return $ret;
 }
 
+function considerIPAutoRelease()
+{
+	return getConfigVar ('IPV4_AUTO_RELEASE');
+}
+
 function bindIPToObject ($ip_bin, $object_id = 0, $name = '', $type = '')
 {
+	callHook("bindIPToObjectBefore_hook", $ip_bin, $object_id, $name, $type);
 	switch (strlen ($ip_bin))
 	{
 		case 4:
@@ -2466,7 +2535,7 @@ function bindIPToObject ($ip_bin, $object_id = 0, $name = '', $type = '')
 	}
 
 	// release IP reservation and/or comment if configured
-	$release = getConfigVar ('IPV4_AUTO_RELEASE');
+	$release = callHook ('considerIPAutoRelease', $ip_bin, $object_id, $name, $type);
 	if ($release >= 2)
 		usePreparedExecuteBlade ("DELETE FROM $table2 WHERE ip = ?", array ($db_ip));
 	elseif ($release >= 1)
@@ -2481,6 +2550,7 @@ function bindIPToObject ($ip_bin, $object_id = 0, $name = '', $type = '')
 	$cell = spotEntity ('object', $object_id);
 	setDisplayedName ($cell);
 	addIPLogEntry ($ip_bin, "Binded with ${cell['dname']}, ifname=$name");
+	callHook('commitBindIPToObjectAfter_hook', $ip_bin, $object_id, $name, $type);
 }
 
 function bindIPv4ToObject ($ip_bin, $object_id = 0, $name = '', $type = '')
@@ -2652,6 +2722,7 @@ function updateAddress ($ip_bin, $name = '', $reserved = 'no', $comment = '')
 	// store history line
 	if ($messages)
 		addIPLogEntry ($ip_bin, ucfirst (implode (', ', $messages)));
+	callHook('commitUpdateAddressAfter_hook', $ip_bin, $old_name, $old_comment, $name, $reserved, $comment);
 }
 
 function updateV4Address ($ip_bin, $name = '', $reserved = 'no', $comment = '')
@@ -2680,6 +2751,8 @@ function updateIPBond ($ip_bin, $object_id=0, $name='', $type='')
 
 function updateIPv4Bond ($ip_bin, $object_id=0, $name='', $type='')
 {
+	callHook("updateIPBondBefore_hook", $ip_bin, $object_id, $name, $type);
+
 	usePreparedUpdateBlade
 	(
 		'IPv4Allocation',
@@ -2694,10 +2767,14 @@ function updateIPv4Bond ($ip_bin, $object_id=0, $name='', $type='')
 			'object_id' => $object_id,
 		)
 	);
+
+	callHook('commitUpdateIPBondAfter_hook', $ip_bin, $object_id, $name, $type);
 }
 
 function updateIPv6Bond ($ip_bin, $object_id=0, $name='', $type='')
 {
+	callHook("updateIPBondBefore_hook", $ip_bin, $object_id, $name, $type);
+
 	usePreparedUpdateBlade
 	(
 		'IPv6Allocation',
@@ -2712,10 +2789,13 @@ function updateIPv6Bond ($ip_bin, $object_id=0, $name='', $type='')
 			'object_id' => $object_id,
 		)
 	);
+
+	callHook('commitUpdateIPBondAfter_hook', $ip_bin, $object_id, $name, $type);
 }
 
 function unbindIPFromObject ($ip_bin, $object_id)
 {
+	callHook("unbindIPFromObjectBefore_hook", $ip_bin, $object_id);
 	switch (strlen ($ip_bin))
 	{
 		case 4:
@@ -2740,6 +2820,7 @@ function unbindIPFromObject ($ip_bin, $object_id)
 		$cell = spotEntity ('object', $object_id);
 		setDisplayedName ($cell);
 		addIPLogEntry ($ip_bin, "Removed from ${cell['dname']}");
+		callHook('commitUnbindIPFromObjectAfter_hook', $ip_bin, $object_id);
 	}
 }
 
@@ -3059,7 +3140,7 @@ function getVLANSearchResult ($terms)
 
 function getSearchResultByField ($tablename, $retcolumns, $scancolumn, $terms, $ordercolumn = '', $exactness = 0)
 {
-	$query = 'SELECT ' . implode (', ', $retcolumns) . " FROM ${tablename} WHERE ";
+	$query = 'SELECT ' . implode (', ', $retcolumns) . " FROM {$tablename} WHERE ";
 	$qparams = array();
 	$pfx = '';
 	$pterms = $exactness == 3 ? explode (' ', $terms) : parseSearchTerms ($terms);
@@ -3837,6 +3918,7 @@ function getAttrValuesSorted ($object_id)
 // the mismatch here and throw InvalidArgException instead.
 function commitUpdateAttrValue ($object_id, $attr_id, $value = '')
 {
+	callHook('commitUpdateAttrValueBefore_hook', $object_id, $attr_id, $value);
 	global $object_attribute_cache;
 	if (isset ($object_attribute_cache[$object_id]))
 		unset ($object_attribute_cache[$object_id]);
@@ -3936,14 +4018,29 @@ function usePreparedInsertBlade ($tablename, $columns)
 	// INSERT INTO `table` SET `c1` = ?, `c2` = ?, `c3` = ?
 	try
 	{
+		$t0 = gettimeofday();
 		$prepared = $dbxlink->prepare ($query);
 		$prepared->execute (array_values ($columns));
-		return $prepared->rowCount();
+		$count = $prepared->rowCount();
+		if (is_callable ('statsd'))
+			statsd()->account_query ($t0, $query, $count);
+		return $count;
 	}
 	catch (PDOException $e)
 	{
 		throw convertPDOException ($e);
 	}
+}
+
+function backtickColumnName ($column_name)
+{
+	$parts = explode ('.', $column_name, 2);
+	if (count ($parts) < 2)
+		array_unshift ($parts, '');
+	else
+		$parts[0] .= '.';
+	list ($table, $column) = $parts;
+	return "${table}`${column}`";
 }
 
 function makeSetSQL ($column_names)
@@ -3952,7 +4049,7 @@ function makeSetSQL ($column_names)
 	$tmp = array();
 	// Same syntax works for NULL as well.
 	foreach ($column_names as $each)
-		$tmp[] = "`${each}` = ?";
+		$tmp[] = backtickColumnName ($each) . " = ?";
 	return implode (', ', $tmp);
 }
 
@@ -3965,16 +4062,16 @@ function makeWhereSQL ($where_columns, $conjunction, &$params)
 	$tmp = array();
 	foreach ($where_columns as $colname => $colvalue)
 		if ($colvalue === NULL)
-			$tmp[] = "`${colname}` IS NULL";
+			$tmp[] = backtickColumnName ($colname) . " IS NULL";
 		elseif (is_array ($colvalue))
 		{
 			// Suppress any string keys to keep array_merge() from overwriting.
 			$params = array_merge ($params, array_values ($colvalue));
-			$tmp[] = sprintf ('`%s` IN(%s)', $colname, questionMarks (count ($colvalue)));
+			$tmp[] = sprintf ('%s IN(%s)', backtickColumnName ($colname), questionMarks (count ($colvalue)));
 		}
 		else
 		{
-			$tmp[] = "`${colname}` = ?";
+			$tmp[] = backtickColumnName ($colname) . " = ?";
 			$params[] = $colvalue;
 		}
 	return implode (" ${conjunction} ", $tmp);
@@ -3991,9 +4088,14 @@ function usePreparedDeleteBlade ($tablename, $columns, $conjunction = 'AND')
 	$query = "DELETE FROM `${tablename}` WHERE " . makeWhereSQL ($columns, $conjunction, $where_values);
 	try
 	{
+		callHook("usePreparedDeleteBladeBefore_hook", $tablename, $columns, $conjunction);
+		$t0 = gettimeofday();
 		$prepared = $dbxlink->prepare ($query);
 		$prepared->execute ($where_values);
-		return $prepared->rowCount();
+		$count = $prepared->rowCount();
+		if (is_callable ('statsd'))
+			statsd()->account_query ($t0, $query, $count);
+		return $count;
 	}
 	catch (PDOException $e)
 	{
@@ -4006,8 +4108,11 @@ function usePreparedSelectBlade ($query, $args = array())
 	global $dbxlink;
 	try
 	{
+		$t0 = gettimeofday();
 		$prepared = $dbxlink->prepare ($query);
 		$prepared->execute ($args);
+		if (is_callable ('statsd'))
+			statsd()->account_query ($t0, $query, $prepared->rowCount());
 		return $prepared;
 	}
 	catch (PDOException $e)
@@ -4028,9 +4133,13 @@ function usePreparedUpdateBlade ($tablename, $set_columns, $where_columns, $conj
 	$query .= ' WHERE ' . makeWhereSQL ($where_columns, $conjunction, $where_values);
 	try
 	{
+		$t0 = gettimeofday();
 		$prepared = $dbxlink->prepare ($query);
 		$prepared->execute (array_merge (array_values ($set_columns), $where_values));
-		return $prepared->rowCount();
+		$count = $prepared->rowCount();
+		if (is_callable ('statsd'))
+			statsd()->account_query ($t0, $query, $count);
+		return $count;
 	}
 	catch (PDOException $e)
 	{
@@ -4045,9 +4154,13 @@ function usePreparedExecuteBlade ($query, $args = array())
 	global $dbxlink;
 	try
 	{
+		$t0 = gettimeofday();
 		$prepared = $dbxlink->prepare ($query);
 		$prepared->execute ($args);
-		return $prepared->rowCount();
+		$count = $prepared->rowCount();
+		if (is_callable ('statsd'))
+			statsd()->account_query ($t0, $query, $count);
+		return $count;
 	}
 	catch (PDOException $e)
 	{
@@ -4251,6 +4364,8 @@ function generateEntityAutoTags ($cell)
 			$ret[] = array ('tag' => '$fileid_' . $cell['id']);
 			$ret[] = array ('tag' => '$any_file');
 			break;
+		case 'vlandomain':
+			break;
 		case 'vst':
 			$ret[] = array ('tag' => '$vstid_' . $cell['id']);
 			$ret[] = array ('tag' => '$any_vst');
@@ -4269,6 +4384,7 @@ function generateEntityAutoTags ($cell)
 		case 'ipv4vs':
 		case 'ipv4rspool':
 		case 'file':
+		case 'vlandomain':
 		case 'vst':
 			if (!count ($cell['etags']))
 				$ret[] = array ('tag' => '$untagged');
@@ -4322,6 +4438,7 @@ function getTagUsage ($ignore_cache = FALSE)
 // Drop the whole chain stored.
 function destroyTagsForEntity ($entity_realm, $entity_id)
 {
+	callHook("destroyTagsForEntityBefore_hook", $entity_realm, $entity_id);
 	usePreparedDeleteBlade ('TagStorage', array ('entity_realm' => $entity_realm, 'entity_id' => $entity_id));
 	if ($entity_realm == 'rack')
 		usePreparedDeleteBlade ('RackThumbnail', array ('rack_id' => $entity_id));
@@ -4451,6 +4568,7 @@ function rebuildTagChainForEntity ($realm, $entity_id, $extrachain = array(), $r
 	elseif ($realm == 'object' && count ($rack_ids = getResidentRackIDs ($entity_id)))
 		usePreparedDeleteBlade ('RackThumbnail', array ('rack_id' => $rack_ids));
 
+	callHook("rebuildTagChainForEntityAfter_hook", $realm, $entity_id, $oldchain, $newchain);
 	return TRUE;
 }
 
@@ -4499,6 +4617,7 @@ function createIPv4Prefix ($range = '', $name = '', $is_connected = FALSE, $tagl
 	produceTagsForNewRecord ('ipv4net', $taglist, $network_id);
 	if ($vlan_ck != NULL)
 		commitSupplementVLANIPv4 ($vlan_ck, $network_id);
+	callHook('commitAddNetworkAfter_hook', 'ipv4net', $network_id, $range, $name, $is_connected, $taglist, $vlan_ck);
 	return $network_id;
 }
 
@@ -4531,12 +4650,14 @@ function createIPv6Prefix ($range = '', $name = '', $is_connected = FALSE, $tagl
 	produceTagsForNewRecord ('ipv6net', $taglist, $network_id);
 	if ($vlan_ck != NULL)
 		commitSupplementVLANIPv6 ($vlan_ck, $network_id);
+	callHook('commitAddNetworkAfter_hook', 'ipv6net', $network_id, $range, $name, $is_connected, $taglist, $vlan_ck);
 	return $network_id;
 }
 
 // FIXME: This function doesn't wipe relevant records from IPv4Address table.
 function destroyIPv4Prefix ($id)
 {
+	callHook('commitDeleteNetworkBefore_hook', 'ipv4net', $id);
 	releaseFiles ('ipv4net', $id);
 	usePreparedDeleteBlade ('IPv4Network', array ('id' => $id));
 	destroyTagsForEntity ('ipv4net', $id);
@@ -4545,6 +4666,7 @@ function destroyIPv4Prefix ($id)
 // FIXME: This function doesn't wipe relevant records from IPv6Address table.
 function destroyIPv6Prefix ($id)
 {
+	callHook('commitDeleteNetworkBefore_hook', 'ipv6net', $id);
 	releaseFiles ('ipv6net', $id);
 	usePreparedDeleteBlade ('IPv6Network', array ('id' => $id));
 	destroyTagsForEntity ('ipv6net', $id);
@@ -4996,7 +5118,7 @@ function constructUserCell ($username)
 		'etags' => array(),
 		'itags' => array(),
 	);
-	$ret['atags'] = generateEntityAutoTags ($ret);
+	$ret['atags'] = callHook ('generateEntityAutoTags', $ret);
 	return $ret;
 }
 
@@ -5021,6 +5143,11 @@ function alreadyUsedL2Address ($address, $my_object_id)
 // been conditioned with l2addressForDatabase().
 function assertUniqueL2Addresses ($db_l2addresses, $my_object_id)
 {
+	$early_exit = callHook ('assertUniqueL2Addresses_hook', $db_l2addresses, $my_object_id);
+	if ($early_exit) {
+		return;
+	}
+
 	// Reindex the array such that array_merge() below works as expected.
 	$db_l2addresses = array_values (array_unique (array_filter ($db_l2addresses, 'strlen')));
 	if (0 == count ($db_l2addresses))
@@ -5084,10 +5211,16 @@ ORDER BY oif_name
 
 function getPortTypeUsageStatistics()
 {
+	// The query had this shape because an earlier form was rejected by MySQL 5.7.
+	// 'SELECT p.iif_id, p.type, COUNT(p.id) AS count FROM Port p INNER JOIN Link l '.
+	// 'ON (p.id = l.porta or p.id = l.portb) WHERE p.type <> 0 GROUP BY iif_id, type'
 	$result = usePreparedSelectBlade
 	(
-		'SELECT p.iif_id, p.type, COUNT(p.id) AS count FROM Port p INNER JOIN Link l '.
-		'ON (p.id = l.porta or p.id = l.portb) WHERE p.type <> 0 GROUP BY iif_id, type'
+		"SELECT p.iif_id, p.type, COUNT(p.id) AS count FROM (
+				SELECT p.iif_id, p.type, p.id FROM Port p INNER JOIN Link l ON p.id = l.porta where p.type <> 0
+				UNION ALL
+				SELECT p.iif_id, p.type, p.id FROM Port p INNER JOIN Link l ON p.id = l.portb where p.type <> 0
+		) p GROUP BY p.iif_id, p.type"
 	);
 	$ret = array();
 	while ($row = $result->fetch (PDO::FETCH_ASSOC))
@@ -5646,6 +5779,13 @@ function replace8021QPorts ($instance, $object_id, $before, $changes)
 	return $done;
 }
 
+function fetchValidVlans()
+{
+	$result = usePreparedSelectBlade ('SELECT vlan_id FROM VLANValidID');
+	$ret = $result->fetchAll (PDO::FETCH_COLUMN, 0);
+	return array_combine ($ret, $ret);
+}
+
 function commitUpdateVSTRules ($vst_id, $mutex_rev, $rules)
 {
 	global $dbxlink, $remote_username;
@@ -5867,20 +6007,9 @@ function scanAttrRelativeDays ($attr_id, $not_before_days, $not_after_days)
 function isTransactionActive()
 {
 	global $dbxlink;
-	try
-	{
-		if ($dbxlink->beginTransaction())
-		{
-			$dbxlink->rollBack();
-			return FALSE;
-		}
-		throw new RackTablesError ("beginTransaction() returned FALSE instead of throwing exception", RackTablesError::INTERNAL);
-	}
-	catch (PDOException $e)
-	{
-		return TRUE;
-	}
+	return $dbxlink->inTransaction();
 }
+
 
 function getRowsCount ($table)
 {
