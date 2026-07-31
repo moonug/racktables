@@ -1,0 +1,5 @@
+racktables (0.22.1) unstable; urgency=medium
+
+  * Vendor import of internal improvements over upstream 0.22.1.
+
+ -- RackTables Maintainers <moonug@gmail.com>  Fri, 31 Jul 2026 00:00:00 +0000

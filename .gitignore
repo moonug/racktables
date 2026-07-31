@@ -1,9 +1,12 @@
 wwwroot/inc/secret.php
 wwwroot/inc/local.php
+cli_install.php
+tests/phpunit-*.phar
 /.idea
 /.project
 tags
 tests/.phpunit.result.cache
+.DS_Store
 
 # vim
 [._]*.s[a-w][a-z]

@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  phpunit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4', '8.1', '8.2', '8.3']
+    services:
+      mysql:
+        image: mariadb:10.6
+        env:
+          MARIADB_ROOT_PASSWORD: ''
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 'yes'
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping --silent" --health-interval=10s --health-timeout=5s --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: gd, mbstring, mysqli, pdo_mysql, snmp, bcmath
+          tools: phpunit-9
+      - name: Create test database and secret.php
+        run: tests/ci_setup_mysql.sh racktables_unittest racktables_unittest racktables_unittest
+      - name: Run tests
+        run: tests/express_phpunit.sh
+      - name: Remove deployment config
+        if: always()
+        run: rm -f wwwroot/inc/secret.php
+
+  debian:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install packaging tools
+        run: sudo apt-get update && sudo apt-get install -y dpkg-dev debhelper
+      - name: Build the .deb
+        run: dpkg-buildpackage -us -uc -b
+      - name: Inspect the package
+        run: |
+          deb=$(ls -1 ../racktables_*.deb | head -1)
+          echo "Built: $deb"
+          dpkg-deb -c "$deb" | grep -E 'auth-methods/(common|ldap|saml)\.php' || { echo "auth-methods missing"; exit 1; }
+          if dpkg-deb -c "$deb" | grep -E 'inc/(secret|local)\.php'; then
+            echo "ERROR: deployment config shipped in package"
+            exit 1
+          fi
