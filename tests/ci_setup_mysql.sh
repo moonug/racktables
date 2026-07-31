@@ -39,8 +39,12 @@ mysql $MYSQL_OPTS mysql -e "CREATE DATABASE ${DBNAME} CHARACTER SET utf8 COLLATE
 mysql $MYSQL_OPTS -e "CREATE USER ${USERNAME}@'%' IDENTIFIED BY '${PASSWORD}';" || exit 2
 mysql $MYSQL_OPTS -e "GRANT ALL PRIVILEGES ON ${DBNAME}.* TO ${USERNAME}@'%';" || exit 2
 
-# "database" has no effect in this environment
-if ! [ -e ~/.my.cnf ]; then
+# "~/.my.cnf" is only useful for the local (unix socket) developer workflow,
+# where it lets the mysql CLI pick up the test credentials without -u/-p.
+# In CI the server is reached over TCP as root with no password; writing a
+# my.cnf with the test user's password here would make the later root calls
+# send that password (mismatch) and fail. Skip it when RT_DB_HOST is set.
+if [ "$RT_DB_HOST" = "localhost" ] && ! [ -e ~/.my.cnf ]; then
 	cat > ~/.my.cnf <<EOF
 [client]
 user=$USERNAME

@@ -30,7 +30,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: gd, mbstring, mysqli, pdo_mysql, snmp, bcmath
+          extensions: gd, mbstring, mysqli, pdo_mysql, snmp, bcmath, json, dom, xmlwriter, tokenizer
           tools: phpunit-9
       - name: Install MySQL client
         run: sudo apt-get update && sudo apt-get install -y mariadb-client
@@ -57,7 +57,7 @@ jobs:
           deb=$(ls -1 ../racktables_*.deb | head -1)
           echo "Built: $deb"
           dpkg-deb -c "$deb" | grep -E 'auth-methods/(common|ldap|saml)\.php' || { echo "auth-methods missing"; exit 1; }
-          if dpkg-deb -c "$deb" | grep -E 'inc/(secret|local)\.php'; then
+          if dpkg-deb -c "$deb" | grep -E '(inc|auth-methods)/(secret|local)\.php'; then
             echo "ERROR: deployment config shipped in package"
             exit 1
           fi

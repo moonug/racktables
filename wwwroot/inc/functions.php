@@ -4581,14 +4581,16 @@ function exec8021QDeploy ($object_id, $do_push)
 	}
 	setVLANSwitchError ($object_id, $errno);
 
-	[$out_of_sync, $ok_to_push] = callHook(
+	$hook_result = callHook(
 		'exec8021QDeployAlter',
 		$object_id,
 		$R,
 		$out_of_sync,
 		$ok_to_push,
 		$do_push
-	) ?? [$out_of_sync, $ok_to_push];
+	);
+	if (is_array ($hook_result))
+		list ($out_of_sync, $ok_to_push) = $hook_result;
 
 	$mutex_rev = $vswitch['mutex_rev'];
 	if ($vswitch['out_of_sync'] == "yes" && ! $out_of_sync)
