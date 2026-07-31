@@ -1040,7 +1040,7 @@ function get_pseudo_file ($name)
 ) ENGINE=InnoDB";
 
 		$query[] = "CREATE TABLE `TagStorage` (
-  `entity_realm` enum('file','ipv4net','ipv4rspool','ipv4vs','ipvs','ipv6net','location','object','rack','user','vst') NOT NULL default 'object',
+  `entity_realm` enum('file','ipv4net','ipv4rspool','ipv4vs','ipvs','ipv6net','location','object','rack','user','vst','vlandomain') NOT NULL default 'object',
   `entity_id` int(10) unsigned NOT NULL,
   `tag_id` int(10) unsigned NOT NULL default '0',
   `tag_is_assignable` enum('yes','no') NOT NULL DEFAULT 'yes',
@@ -2303,6 +2303,7 @@ WHERE O.objtype_id = 1562";
 ('REVERSED_RACKS_LISTSRC', 'false', 'string', 'yes', 'no', 'no', 'List of racks with reversed (top to bottom) units order'),
 ('NEAREST_RACKS_CHECKBOX', 'yes', 'string', 'yes', 'no', 'yes', 'Enable nearest racks in port list filter by default'),
 ('SHOW_OBJECTTYPE', 'yes', 'string', 'no', 'no', 'yes', 'Show object type column on depot page'),
+('8021Q_DELETE_ON_PULL_LISTSRC', 'false', 'string', 'yes', 'no', 'no', 'List source: switch devices which are allowed to lose switchports on 802.1Q pull'),
 ('OBJECTLOG_PREVIEW_ENTRIES','5','uint','no','no','yes','Object log preview maximum entries (0 disables the preview)'),
 ('DB_VERSION','${db_version}','string','no','yes','no','Database version.')";
 

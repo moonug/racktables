@@ -163,6 +163,7 @@ function render8021QStatus ()
 		startPortlet ('no VLAN domains');
 	else
 	{
+		$vdlist_ex = listCells ('vlandomain');
 		startPortlet ('VLAN domains (' . count ($vdlist) . ')');
 		echo '<table cellspacing=0 cellpadding=5 align=center class=widetable>';
 		echo '<tr><th>description</th><th>VLANs</th><th>switches</th><th>';
@@ -175,7 +176,16 @@ function render8021QStatus ()
 		{
 			foreach ($columns as $cname)
 				$stats[$cname] += $dominfo[$cname];
-			echo '<tr align=left><td>' . mkA (stringForTD ($dominfo['description']), 'vlandomain', $vdom_id) . '</td>';
+			echo '<tr align=left><td>' . mkA (stringForTD ($dominfo['description']), 'vlandomain', $vdom_id);
+
+			$tags = array();
+			if (array_key_exists ($vdom_id, $vdlist_ex))
+				$tags = $vdlist_ex[$vdom_id]['etags'];
+
+			if (count ($tags))
+				echo '<br><small style="margin-left:1em">' . serializeTags ($tags) . '</small>';
+
+			echo '</td>';
 			foreach ($columns as $cname)
 				echo '<td class=tdright>' . $dominfo[$cname] . '</td>';
 			echo '</tr>';
@@ -362,6 +372,19 @@ function renderVLANDomain ($vdom_id)
 	echo '</td></tr></table>';
 }
 
+function renderVLANDomainProperties ($vdom_id)
+{
+	$vdom = spotEntity ('vlandomain', $vdom_id);
+	echo '<center><h1>' . stringForLabel ($vdom['description']) . '</h1></center>';
+	echo '<table cellspacing=0 cellpadding=5 align=center class=widetable>';
+	echo "<tr><th class=tdright>Tags:</th><td class=tdleft style='border-top: none;'>";
+	printOpFormIntro ('save');
+	printTagsPicker ();
+	echo "</td></tr>";
+	echo '<tr><td></td><td><center>' . getImageHREF ('SAVE', 'Save', TRUE) . '</center></td></tr>';
+	echo '</table>';
+}
+
 function renderVLANDomainVLANList ($vdom_id)
 {
 	function printNewItemTR ()
@@ -429,11 +452,11 @@ function renderObject8021QPorts ($object_id)
 	$uplinks = filter8021QChangeRequests ($vdom['vlanlist'], $desired_config, produceUplinkPorts ($vdom['vlanlist'], $desired_config, $vswitch['object_id']));
 	echo '<table border=0 width="100%"><tr valign=top><td class=tdleft width="50%">';
 	// port list
+	if ($req_port_name == '')
+		printOpFormIntro ('save8021QConfig', array ('mutex_rev' => $vswitch['mutex_rev'], 'form_mode' => 'save'));
 	echo '<table cellspacing=0 cellpadding=5 align=center class=widetable>';
 	echo '<tr><th>port</th><th>interface</th><th>link</th><th width="25%">last&nbsp;saved&nbsp;config</th>';
 	echo $req_port_name == '' ? '<th width="25%">new&nbsp;config</th></tr>' : '<th>(zooming)</th></tr>';
-	if ($req_port_name == '');
-		printOpFormIntro ('save8021QConfig', array ('mutex_rev' => $vswitch['mutex_rev'], 'form_mode' => 'save'));
 	$sockets = array();
 	if (isset ($_REQUEST['hl_port_id']))
 	{
@@ -547,17 +570,16 @@ function renderObject8021QPorts ($object_id)
 		echo "<input type=hidden name=nports value=${nports}>";
 		echo '<li>' . getImageHREF ('SAVE', 'save configuration', TRUE) . '</li>';
 	}
-	echo '</form>';
 	if (permitted (NULL, NULL, NULL, array (array ('tag' => '$op_recalc8021Q'))))
 		echo '<li>' . getOpLink (array ('op' => 'exec8021QRecalc'), '', 'RECALC', 'Recalculate uplinks and downlinks') . '</li>';
 	echo '</ul></td></tr></table>';
-	if ($req_port_name == '');
+	if ($req_port_name == '')
 		echo '</form>';
 	echo '</td>';
+	echo '<td>';
 	// configuration of currently selected port, if any
 	if (!array_key_exists ($req_port_name, $desired_config))
 	{
-		echo '<td>';
 		$port_options = array();
 		foreach ($desired_config as $pn => $portinfo)
 			if (editable8021QPort ($portinfo))
@@ -568,16 +590,15 @@ function renderObject8021QPorts ($object_id)
 		else
 		{
 			startPortlet ('port duplicator');
-			echo '<table border=0 align=center>';
 			printOpFormIntro ('save8021QConfig', array ('mutex_rev' => $vswitch['mutex_rev'], 'form_mode' => 'duplicate'));
+			echo '<table border=0 align=center>';
 			echo '<tr><td>' . getSelect ($port_options, array ('name' => 'from_port')) . '</td></tr>';
 			echo '<tr><td>&darr; &darr; &darr;</td></tr>';
 			echo '<tr><td>' . getSelect ($port_options, array ('name' => 'to_ports[]', 'size' => getConfigVar ('MAXSELSIZE'), 'multiple' => 1)) . '</td></tr>';
 			echo '<tr><td>' . getImageHREF ('COPY', 'duplicate', TRUE) . '</td></tr>';
-			echo '</form></table>';
+			echo '</table></form>';
 			finishPortlet();
 		}
-		echo '</td>';
 	}
 	else
 		renderTrunkPortControls
@@ -587,6 +608,7 @@ function renderObject8021QPorts ($object_id)
 			$req_port_name,
 			$desired_config[$req_port_name]
 		);
+	echo '</td>';
 	echo '</tr></table>';
 }
 
@@ -604,14 +626,22 @@ function getAccessPortControlCode ($req_port_name, $vdom, $port_name, $port, &$n
 	)
 		return formatVLANAsLabel ($vdom['vlanlist'][$port['native']]);
 
-	static $vlanpermissions = array(); // index: from_vid. value: to_list
-	$from = $port['native'];
-	if (!array_key_exists ($from, $vlanpermissions))
+	static $vlanpermissions = array(); // index: from_vlanpack. value: to_list
+	$from_vlanpack = serializeVLANPack ($port);
+	if (!array_key_exists ($from_vlanpack, $vlanpermissions))
 	{
-		$vlanpermissions[$from] = array();
+		$vlanpermissions[$from_vlanpack] = array();
 		foreach (array_keys ($vdom['vlanlist']) as $to)
-			if (nativeVlanChangePermitted ($port_name, $from, $to, 'save8021QConfig'))
-				$vlanpermissions[$from][] = $to;
+		{
+			$before = array ($port_name => $port);
+			$changes = array ($port_name => array (
+				'mode' => 'access',
+				'native' => $to,
+				'allowed' => array ($to),
+			));
+			if (count (authorize8021QChangeRequests ($before, $changes, 'save8021QConfig')) != 0)
+				$vlanpermissions[$from_vlanpack][] = $to;
+		}
 	}
 	$ret = "<input type=hidden name=pn_${nports} value='${port_name}'>";
 	$ret .= "<input type=hidden name=pm_${nports} value=access>";
@@ -624,9 +654,9 @@ function getAccessPortControlCode ($req_port_name, $vdom, $port_name, $port, &$n
 	foreach ($vdom['vlanlist'] as $vlan_id => $vlan_info)
 		if
 		(
-			($vlan_id != $from || $port['mode'] == 'trunk') &&
+			($vlan_id != $port['native'] || $port['mode'] == 'trunk') &&
 			$vlan_info['vlan_type'] != 'alien' &&
-			in_array ($vlan_id, $vlanpermissions[$from]) &&
+			in_array ($vlan_id, $vlanpermissions[$from_vlanpack]) &&
 			matchVLANFilter ($vlan_id, $port['wrt_vlans'])
 		)
 			$options[$vlan_id] = formatVLANAsOption ($vlan_info);
@@ -677,6 +707,7 @@ function renderTrunkPortControls ($vswitch, $vdom, $port_name, $vlanport)
 		'form_mode' => 'save',
 	);
 	printOpFormIntro ('save8021QConfig', $formextra);
+	echo '<table border=0 width="100%"><tr valign=top>';
 	echo '<td width="35%">';
 	echo '<table border=0 cellspacing=0 cellpadding=3 align=center>';
 	echo '<tr><th colspan=2>allowed</th></tr>';
@@ -762,7 +793,8 @@ function renderTrunkPortControls ($vswitch, $vdom, $port_name, $vlanport)
 	}
 	echo '<tr><td class=tdleft>';
 	printImageHREF ('SAVE', 'Save changes', TRUE);
-	echo '</form></td><td class=tdright>';
+	echo '</form>';
+	echo '</td><td class=tdright>';
 	if (!count ($vlanport['allowed']))
 		printImageHREF ('CLEAR gray');
 	else
@@ -771,6 +803,7 @@ function renderTrunkPortControls ($vswitch, $vdom, $port_name, $vlanport)
 		printImageHREF ('CLEAR', 'Unassign all VLANs', TRUE);
 		echo '</form>';
 	}
+	echo '</td></tr></table>';
 	echo '</td></tr></table>';
 	echo '</td>';
 }
@@ -1180,7 +1213,7 @@ function renderObject8021QSyncPreview ($object, $vswitch, $plan, $C, $R, $maxdec
 	switchportInfoJS ($vswitch['object_id']); // load JS code to make portnames interactive
 	// Initialize one of the three popups: the data is ready.
 	$port_config = addslashes (json_encode (formatPortConfigHints ($vswitch['object_id'], $R)));
-	addJSText (<<<'END'
+	addJSText (<<<"END"
 $(document).ready(function(){
 	var confData = $.parseJSON('$port_config');
 	applyConfData(confData);

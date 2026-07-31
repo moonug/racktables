@@ -75,6 +75,7 @@ $etype_by_pageno = array
 	'location' => 'location',
 	'user' => 'user',
 	'file' => 'file',
+	'vlandomain' => 'vlandomain',
 	'vst' => 'vst',
 );
 $pageno_by_etype = array_flip ($etype_by_pageno);
@@ -208,9 +209,28 @@ function isHTMLColor ($color)
 	return 1 == preg_match ('/^[0-9A-F]{6}$/i', $color);
 }
 
-function isValidVLANID ($x)
+function isValidVLANID ($vlan_id, $strict = FALSE)
 {
-	return isInteger ($x) && $x >= VLAN_MIN_ID && $x <= VLAN_MAX_ID;
+	$override = callHook ('isValidVLANID_hook', $vlan_id, $strict);
+	if (isset ($override))
+		return $override;
+
+	if (! isInteger ($vlan_id))
+		return FALSE;
+	if (! $strict && $vlan_id >= VLAN_MIN_ID && $vlan_id <= VLAN_MAX_ID)
+		return TRUE;
+
+	$valid_vlans = getValidVlans();
+	return isset ($valid_vlans[$vlan_id]);
+}
+
+// cached version of fetchValidVlans()
+function getValidVLANs()
+{
+	static $valid_vlans = NULL;
+	if (! isset ($valid_vlans))
+		$valid_vlans = fetchValidVlans();
+	return $valid_vlans;
 }
 
 function assertUnsignedIntArg ($argname)
@@ -3667,7 +3687,7 @@ function reindexById ($input, $column_name = 'id', $ignore_dups = FALSE)
 	foreach ($input as $item)
 	{
 		if (! isset ($item[$column_name]))
-			throw new InvalidArgException ('input', '(array)', 'ID column missing');
+			throw new InvalidArgException ('input', '(array)', "ID column {$column_name} missing");
 		if (isset ($ret[$item[$column_name]]))
 		{
 			if (!$ignore_dups)
@@ -3700,14 +3720,18 @@ function reduceSubarraysToColumn ($input, $column)
 	return $ret;
 }
 
-// Use the VLAN switch template to set VST role for each port of
-// the provided list. Return resulting list.
 function apply8021QOrder ($vswitch, $portlist)
 {
 	$hook_result = callHook ('apply8021Qrder_hook', $vswitch, $portlist);
 	if (isset ($hook_result))
 		return $hook_result;
+	return apply8021QOrder_do ($vswitch, $portlist);
+}
 
+// Use the VLAN switch template to set VST role for each port of
+// the provided list. Return resulting list.
+function apply8021QOrder_do ($vswitch, $portlist)
+{
 	$vst_id = $vswitch['template_id'];
 	$vst = spotEntity ('vst', $vswitch['template_id']);
 	amplifyCell ($vst);
@@ -3737,31 +3761,26 @@ function apply8021QOrder ($vswitch, $portlist)
 // valid configuration for an "anymode" port.
 function buildVLANFilter ($role, $string)
 {
+	$valid_vlans = getValidVLANs();
 	// set base
 	switch ($role)
 	{
 	case 'access': // 1-4094
 	case 'anymode':
-		$min = VLAN_MIN_ID;
-		$max = VLAN_MAX_ID;
 		break;
 	case 'trunk': // 2-4094
 	case 'uplink':
 	case 'downlink':
-		$min = VLAN_MIN_ID + 1;
-		$max = VLAN_MAX_ID;
+		unset ($valid_vlans[1]);
 		break;
 	default: // none
 		return array();
 	}
 	if ($string == '') // fast track
-		return array (array ('from' => $min, 'to' => $max));
+		return listToRanges ($valid_vlans);
 	// transform
-	$vlanidlist = array();
-	foreach (iosParseVLANString ($string) as $vlan_id)
-		if ($min <= $vlan_id && $vlan_id <= $max)
-			$vlanidlist[] = $vlan_id;
-	return listToRanges ($vlanidlist);
+	$parsed_string = iosParseVLANString ($string);
+	return listToRanges (array_intersect ($valid_vlans, $parsed_string));
 }
 
 // pack set of integers into list of integer ranges
@@ -4121,6 +4140,10 @@ function generate8021QDeployOps ($vswitch, $device_vlanlist, $before, $changes)
 			'arg1' => $vlan_id,
 		);
 
+	if ($ncrq = callHook('alter8021QDeployOps', $crq, $vswitch, $device_vlanlist, $before, $changes)) {
+		$crq = $ncrq;
+	}
+
 	return $crq;
 }
 
@@ -4358,6 +4381,11 @@ function get8021QSyncOptions
 	$allports = array();
 	foreach (array_unique (array_merge (array_keys ($C), array_keys ($R))) as $pn)
 		$allports[$pn] = array();
+	// loop-invariant: whether this switch is allowed to lose ports on 802.1Q pull
+	$delete_on_pull = considerConfiguredConstraint (
+		spotEntity ('object', $vswitch['object_id']),
+		'8021Q_DELETE_ON_PULL_LISTSRC'
+	);
 	foreach (apply8021QOrder ($vswitch, $allports) as $pn => $port)
 	{
 		// catch anomalies early
@@ -4376,12 +4404,18 @@ function get8021QSyncOptions
 		}
 		elseif ((! array_key_exists ($pn, $R) || $R[$pn]['mode'] == 'none') && array_key_exists ($pn, $C))
 		{
-			$ret[$pn] = array
-			(
-				'status' => 'martian_conflict',
-				'left' => array_fetch ($C, $pn, array ('mode' => 'none')),
-				'right' => array_fetch ($R, $pn, array ('mode' => 'none')),
-			);
+			if ($delete_on_pull)
+			{
+				$ret[$pn]['status'] = 'ok_to_delete';
+				$ret[$pn]['left'] = array_fetch ($D, $pn, array ('mode' => 'none'));
+			}
+			else
+				$ret[$pn] = array
+				(
+					'status' => 'martian_conflict',
+					'left' => array_fetch ($C, $pn, array ('mode' => 'none')),
+					'right' => array_fetch ($R, $pn, array ('mode' => 'none')),
+				);
 			continue;
 		}
 		// (DC_): port missing from device
@@ -4547,6 +4581,15 @@ function exec8021QDeploy ($object_id, $do_push)
 	}
 	setVLANSwitchError ($object_id, $errno);
 
+	[$out_of_sync, $ok_to_push] = callHook(
+		'exec8021QDeployAlter',
+		$object_id,
+		$R,
+		$out_of_sync,
+		$ok_to_push,
+		$do_push
+	) ?? [$out_of_sync, $ok_to_push];
+
 	$mutex_rev = $vswitch['mutex_rev'];
 	if ($vswitch['out_of_sync'] == "yes" && ! $out_of_sync)
 		detouchVLANSwitch ($object_id, $mutex_rev);
@@ -4639,12 +4682,25 @@ function initiateUplinksReverb ($object_id, $uplink_ports)
 	// to end up with no more than one execution per remote object.
 	$upstream_config = array();
 	foreach (getObjectPortsAndLinks ($object_id, FALSE) as $portinfo)
+	{
+		$configs = array();
+		// Normal ports
 		if
 		(
 			$portinfo['linked'] &&
 			array_key_exists ($portinfo['name'], $uplink_ports)
 		)
-			$upstream_config[$portinfo['remote_object_id']][$portinfo['remote_name']] = $uplink_ports[$portinfo['name']];
+			$configs[] = array (
+				'remote_id' => $portinfo['remote_object_id'],
+				'local_name' => $portinfo['name'],
+				'remote_name' => $portinfo['remote_name'],
+			);
+		elseif (($hook_result = callHook ('initiateUplinksReverbAdd_hook', $portinfo, $uplink_ports)))
+			$configs = array_merge ($configs, $hook_result);
+
+		foreach ($configs as $config)
+			$upstream_config[$config['remote_id']][$config['remote_name']] = $uplink_ports[$config['local_name']];
+	}
 	// Note that when current object has several Port records inder same name
 	// (but with unique IIF-OIF pair), these ports can be Link'ed to different
 	// remote objects (using different media types, perhaps). Such a case can
@@ -4792,22 +4848,6 @@ function acceptable8021QConfig ($port)
 	default:
 		return FALSE;
 	}
-}
-
-function nativeVlanChangePermitted ($pn, $from_vid, $to_vid, $op = NULL)
-{
-	$before = array ($pn => array (
-		'mode' => 'access',
-		'native' => $from_vid,
-		'allowed' => array ($from_vid),
-	));
-	$changes = array ($pn => array (
-		'mode' => 'access',
-		'native' => $to_vid,
-		'allowed' => array ($to_vid),
-	));
-
-	return count (authorize8021QChangeRequests ($before, $changes, $op)) != 0;
 }
 
 function authorize8021QChangeRequests ($before, $changes, $op = NULL)
@@ -6174,7 +6214,12 @@ function universalHookHandler()
 			array_unshift ($params, $ret);
 		}
 		if (is_callable ($callback))
-			$ret = call_user_func_array ($callback, $params);
+		{
+			if (is_callable ('statsd'))
+				$ret = statsd()->call_fn($callback, $params);
+			else
+				$ret = call_user_func_array ($callback, $params);
+		}
 		else
 			throw new RackTablesError ("Call of non-existant callback '$callback'", RackTablesError::INTERNAL);
 		if ($hook_propagation_stop[0])
@@ -6804,7 +6849,12 @@ function replaceObjectPorts ($object_id, $desiredPorts)
 	// only changes requested are to add ports w/o MAC addresses or to update existing
 	// ports in a way that does not introduce new MAC addresses, it is impossible to
 	// tell reliably which ports require which actions without locking the table first.
-	$dbxlink->exec ('LOCK TABLES Port WRITE, PortLog WRITE, Link READ');
+	global $port_ops_locking_tables;
+	$lock_str = 'LOCK TABLES Port WRITE, PortLog WRITE, Link READ';
+	foreach ($port_ops_locking_tables as $table => $lock_type) {
+		$lock_str .= ", $table $lock_type";
+	}
+	$dbxlink->exec ($lock_str);
 	foreach (getObjectPortsAndLinksTerse ($object_id) as $port)
 	{
 		$key = "{$port['name']}-{$port['iif_id']}";
@@ -6870,4 +6920,24 @@ function formatPluginState ($state)
 		'not_installed' => 'Not installed',
 	);
 	return array_fetch ($map, $state, 'unknown');
+}
+
+/**
+ * Register new realm. $hooks is array to trap hooks:
+ * - spotEntity: allows for extra logic during spotEntity()
+ * - listCells: same as above, but for listCells()
+ */
+function registerRealm($name, $sqlSchema = NULL, $hooks = []) {
+	global $realmRegistry, $SQLSchema;
+
+	if ($sqlSchema) {
+		$SQLSchema[$name] = $sqlSchema;
+	}
+
+	$realmRegistry[$name] = array_merge(
+		[
+			'spotEntity' => NULL,
+			'listCells' => NULL,
+		], $hooks
+	);
 }
