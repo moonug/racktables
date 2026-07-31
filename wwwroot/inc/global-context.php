@@ -3,7 +3,10 @@
 class GlobalContext {
     protected static ?Context $root_ctx = NULL;
     
-    public static function getCurrent() : Context {
+    public static function getCurrent() : ?Context {
+        if (self::$root_ctx === NULL) {
+            return NULL;
+        }
         $cur_ctx = self::$root_ctx;
         while ($cur_ctx->getChild() !== NULL) {
             $cur_ctx = $cur_ctx->getChild();

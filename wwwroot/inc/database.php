@@ -4249,6 +4249,10 @@ WHERE
 
 # Universal autotags generator, a complementing function for loadEntityTags().
 # Bypass key isn't strictly typed, but interpreted depending on the realm.
+# This function is a hook point: callers invoke it via callHook() so that a
+# plugin may override it globally by registering $hook['generateEntityAutoTags'].
+# Note: any override affects autotag generation for ALL entity realms, which
+# in turn feeds the RackCode permission checks (permitted()).
 function generateEntityAutoTags ($cell)
 {
 	global $dict_attr_cache;
