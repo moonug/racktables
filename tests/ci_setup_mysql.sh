@@ -13,7 +13,13 @@ PASSWORD="$3"
 THISDIR=$(dirname "$0")
 BASEDIR=$(readlink -f "$THISDIR/..")
 
-if mysql -u root -e "SHOW TABLES FROM $DBNAME" >/dev/null 2>&1; then
+# Allow overriding the MySQL host (default: localhost, i.e. the local unix
+# socket). Set RT_DB_HOST=127.0.0.1 (or any TCP host) for CI environments
+# where the server runs in a sidecar container reachable only over TCP.
+: "${RT_DB_HOST:=localhost}"
+MYSQL_OPTS="-h $RT_DB_HOST -u root"
+
+if mysql $MYSQL_OPTS -e "SHOW TABLES FROM $DBNAME" >/dev/null 2>&1; then
 	echo "Error: database $DBNAME already exists!"
 	exit 1
 fi
@@ -29,9 +35,9 @@ fi
 # I am trying to initialize with this script. In that specific case
 # the client tries to connect to the database that doesn't yet exist
 # and this script fails, hence the override to "mysql". -- Denis
-mysql -u root mysql -e "CREATE DATABASE ${DBNAME} CHARACTER SET utf8 COLLATE utf8_general_ci;" || exit 2
-mysql -u root -e "CREATE USER ${USERNAME}@localhost IDENTIFIED BY '${PASSWORD}';" || exit 2
-mysql -u root -e "GRANT ALL PRIVILEGES ON ${DBNAME}.* TO ${USERNAME}@localhost;" || exit 2
+mysql $MYSQL_OPTS mysql -e "CREATE DATABASE ${DBNAME} CHARACTER SET utf8 COLLATE utf8_general_ci;" || exit 2
+mysql $MYSQL_OPTS -e "CREATE USER ${USERNAME}@'%' IDENTIFIED BY '${PASSWORD}';" || exit 2
+mysql $MYSQL_OPTS -e "GRANT ALL PRIVILEGES ON ${DBNAME}.* TO ${USERNAME}@'%';" || exit 2
 
 # "database" has no effect in this environment
 if ! [ -e ~/.my.cnf ]; then
@@ -44,7 +50,7 @@ fi
 
 cat > "$BASEDIR/wwwroot/inc/secret.php" <<EOF
 <?php
-\$pdo_dsn = 'mysql:host=localhost;port=3306;dbname=${DBNAME}';
+\$pdo_dsn = 'mysql:host=${RT_DB_HOST};port=3306;dbname=${DBNAME}';
 \$db_username = '${USERNAME}';
 \$db_password = '${PASSWORD}';
 EOF
@@ -62,4 +68,4 @@ EOF
 
 cd "$BASEDIR" || exit 3
 php cli_install.php || exit 3
-mysql -u root "$DBNAME" -e "INSERT INTO UserAccount (user_id, user_name, user_password_hash) VALUES (1, 'admin', SHA1('${PASSWORD}'));" || exit 3
+mysql $MYSQL_OPTS "$DBNAME" -e "INSERT INTO UserAccount (user_id, user_name, user_password_hash) VALUES (1, 'admin', SHA1('${PASSWORD}'));" || exit 3
