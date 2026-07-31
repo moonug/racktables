@@ -11,6 +11,7 @@ permissions:
 jobs:
   phpunit:
     runs-on: ubuntu-latest
+    container: ubuntu:24.04
     strategy:
       fail-fast: false
       matrix:
@@ -26,17 +27,20 @@ jobs:
           - 3306:3306
         options: --health-cmd="mysqladmin ping --silent" --health-interval=10s --health-timeout=5s --health-retries=5
     steps:
+      - name: Install base packages
+        working-directory: /
+        run: apt-get update && apt-get install -y git ca-certificates curl mariadb-client
       - uses: actions/checkout@v4
+      - name: Fix git ownership
+        run: git config --global --add safe.directory '*'
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
           extensions: gd, mbstring, mysqli, pdo_mysql, snmp, bcmath, json, dom, xmlwriter, tokenizer
           tools: phpunit-9
-      - name: Install MySQL client
-        run: sudo apt-get update && sudo apt-get install -y mariadb-client
       - name: Create test database and secret.php
         env:
-          RT_DB_HOST: 127.0.0.1
+          RT_DB_HOST: mysql
         run: tests/ci_setup_mysql.sh racktables_unittest racktables_unittest racktables_unittest
       - name: Run tests
         run: tests/express_phpunit.sh
@@ -46,10 +50,16 @@ jobs:
 
   debian:
     runs-on: ubuntu-latest
+    container: ubuntu:24.04
     steps:
+      - name: Install base packages
+        working-directory: /
+        run: apt-get update && apt-get install -y git ca-certificates curl
       - uses: actions/checkout@v4
+      - name: Fix git ownership
+        run: git config --global --add safe.directory '*'
       - name: Install packaging tools
-        run: sudo apt-get update && sudo apt-get install -y dpkg-dev debhelper
+        run: apt-get install -y --no-install-recommends build-essential dpkg-dev debhelper
       - name: Build the .deb
         run: dpkg-buildpackage -us -uc -b
       - name: Inspect the package
