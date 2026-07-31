@@ -76,6 +76,11 @@ function authenticate ()
 		throw new RackTablesError ('', RackTablesError::NOT_AUTHENTICATED); // Reset browser credentials cache.
 	}
 	// Phase 2. Do some method-specific processing, initialize $remote_username on success.
+	// Auth methods register a 'get_username' op to supply the username from the
+	// transport (e.g. HTTP Basic or REMOTE_USER). A method that does NOT register
+	// 'get_username' (e.g. SAML) must populate global $remote_username itself as a
+	// side effect of its 'authenticate' op, otherwise Phase 3 skips constructUserCell()
+	// and $userinfo stays NULL.
 	$userinfo = NULL;
 	if (! isset ($script_mode) || ! $script_mode || ! isset ($remote_username) || $remote_username == '')
 		$remote_username = call_auth_method_op ($user_auth_src, 'get_username');
