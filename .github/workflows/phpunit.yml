@@ -21,6 +21,7 @@ jobs:
         env:
           MARIADB_ROOT_PASSWORD: ''
           MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: 'yes'
+          MARIADB_ROOT_HOST: '%'
         ports:
           - 3306:3306
         options: --health-cmd="mysqladmin ping --silent" --health-interval=10s --health-timeout=5s --health-retries=5
@@ -31,7 +32,11 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: gd, mbstring, mysqli, pdo_mysql, snmp, bcmath
           tools: phpunit-9
+      - name: Install MySQL client
+        run: sudo apt-get update && sudo apt-get install -y mariadb-client
       - name: Create test database and secret.php
+        env:
+          RT_DB_HOST: 127.0.0.1
         run: tests/ci_setup_mysql.sh racktables_unittest racktables_unittest racktables_unittest
       - name: Run tests
         run: tests/express_phpunit.sh
