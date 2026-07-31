@@ -458,10 +458,15 @@ function makeGatewayParams ($object_id, /*array(&)*/$ref_settings, /*array(&)*/$
 	return $ret;
 }
 
+function queryTerminal ($object_id, $commands, $tolerate_remote_errors = TRUE)
+{
+	return callHook ('queryTerminal_hook', $object_id, $commands, $tolerate_remote_errors);
+}
+
 // This function returns a text output received from the device
 // You can override connection settings by implement a callback named 'terminal_settings'.
 // Errors are thrown as exceptions if not $tolerate_remote_errors, and shown as warnings otherwise.
-function queryTerminal ($object_id, $commands, $tolerate_remote_errors = TRUE)
+function queryTerminal_hook ($object_id, $commands, $tolerate_remote_errors = TRUE)
 {
 	$objectInfo = spotEntity ('object', $object_id);
 	$endpoints = findAllEndpoints ($object_id, $objectInfo['name']);
@@ -732,7 +737,7 @@ function getRunning8021QConfig ($object_id)
 	// Once there is no default VLAN in the parsed data, it means
 	// something else was parsed instead of config text.
 	if (!in_array (VLAN_DFL_ID, $ret['vlanlist']) || empty ($ret['portdata']))
-		throw new RTGatewayError ('communication with device failed');
+		throw new RTGatewayError ('communication with device failed: no vlan ' . VLAN_DFL_ID . ' or empty portdata');
 	return $ret;
 }
 
@@ -741,9 +746,21 @@ function setDevice8021QConfig ($object_id, $pseudocode, $vlan_names)
 	// FIXME: this is a perfect place to log intended changes
 	// $object_id argument isn't used by default translating functions, but
 	// may come in handy for overloaded versions of these.
-	$commands = translateDeviceCommands ($object_id, $pseudocode, $vlan_names);
 	$breed = detectDeviceBreed ($object_id);
-	$output = queryTerminal ($object_id, $commands, FALSE);
+	try
+	{
+		$new_pseudocode = callHook('setDevice8021QConfig_begin', $object_id);
+		if ($new_pseudocode !== NULL)
+		{
+			$pseudocode = $new_pseudocode;
+		}
+		$commands = translateDeviceCommands ($object_id, $pseudocode, $vlan_names);
+		$output = queryTerminal ($object_id, $commands, FALSE);
+	}
+	finally
+	{
+		callHook('setDevice8021QConfig_end', $object_id);
+	}
 
 	// throw an exception if Juniper did not allow to enter config mode or to commit changes
 	if ($breed == 'jun10')
@@ -752,6 +769,11 @@ function setDevice8021QConfig ($object_id, $pseudocode, $vlan_names)
 			throw new RTGatewayError ("Configuration is locked by other user");
 		elseif (preg_match ('/#\s*commit\s*$([^#]*?^error: .*?)$/sm', $output, $m))
 			throw new RTGatewayError ("Commit failed: ${m[1]}");
+	}
+	elseif ($breed == 'vrp85')
+	{
+		if (preg_match ('/Error:\s*(.*)$/m', $output, $m))
+			throw new RTGatewayError ("Configuration failed: ${m[1]}");
 	}
 }
 

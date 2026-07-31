@@ -3591,6 +3591,12 @@ $known_switches = array // key is system OID w/o "enterprises" prefix
 		'text' => 'N3K-3048P: 48 RJ-45/100-1000TX + 4 SFP+/1000-10000',
 		'processors' => array ('nexus-3048-49-to-52-1000SFP', 'nexus-3048-1000TX', 'nexus-mgmt'),
 	),
+	'9.12.3.1.3.1308' => array
+	(
+	    'dict_key' => 2085,
+	    'text' => 'N6K-C6001: 48 SFP+/10000 + 4 QSFP+',
+	    'processors' => array ('nexus-any-10000SFP+', 'nexus-any-QSFP-split', 'nexus-any-QSFP+', 'nexus-mgmt'),
+	),
 	'9.12.3.1.3.1417' => array
 	(
 		'dict_key' => 2331,
@@ -4190,6 +4196,12 @@ $known_switches = array // key is system OID w/o "enterprises" prefix
 		'text' => 'CE5850-48T4S2Q-HI: 48 RJ-45/10-100-1000T(X) + 4 SFP+ slots + 2 QSFP+ slots',
 		'processors' => array ('hce-any-1000T', 'hce-any-SFP', 'hce-any-QSFP', 'quidway-mgmt'),
 	),
+	'2011.2.23.161' => array
+	(
+		'dict_key' => 1771,
+		'text' => 'S6700-48-EI: 48 SFP+ slots',
+		'processors' => array ('hce-any-SFP', 'quidway-mgmt'),
+	),
 	'2011.2.239.5' => array
 	(
 		'dict_key' => 1772,
@@ -4204,7 +4216,7 @@ $known_switches = array // key is system OID w/o "enterprises" prefix
 	),
 	'2011.2.239.32' => array
 	(
-		'dict_key' => 1772,
+		'dict_key' => 2589,
 		'text' => 'CE6870-48S6CQ-EI: 48 SFP+ slots + 6 QSFP28 slots',
 		'processors' => array ('hce-any-SFP', 'hce-any-QSFP28-split', 'hce-any-QSFP28', 'quidway-mgmt'),
 	),

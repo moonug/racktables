@@ -171,6 +171,11 @@ function vrpReadLLDPStatus ($input)
 		'Local',
 		'Locally assigned',
 	);
+	$descr_as_id_subtypes = array
+	(
+		'local',
+		'MAC address',
+	);
 	foreach (explode ("\n", $input) as $line)
 	{
 		$matches = array();
@@ -199,7 +204,7 @@ function vrpReadLLDPStatus ($input)
 				$port = NULL;
 				if (array_key_exists ('PortId', $ret['current']) && in_array ($ret['current']['PortIdSubtype'], $valid_subtypes))
 					$port = $ret['current']['PortId'];
-				elseif (array_key_exists ('PortDescription', $ret['current']) && 'local' == $ret['current']['PortIdSubtype'])
+				elseif (array_key_exists ('PortDescription', $ret['current']) && in_array ($ret['current']['PortIdSubtype'], $descr_as_id_subtypes))
 					$port = $ret['current']['PortDescription'];
 				if (isset ($port))
 					$ret[$ret['current']['local_port']][] = array
@@ -961,6 +966,7 @@ function vrp85Read8021QConfig ($input)
 	$ret['vlanlist'][] = VLAN_DFL_ID; // VRP 8+ hides VLAN1 from config text
 
 	$state = 'skip';
+	$desc_pos = FALSE;
 	$current = array();
 
 	foreach (explode ("\n", $input) as $line)
@@ -971,8 +977,11 @@ function vrp85Read8021QConfig ($input)
 			case 'skip':
 				if (preg_match('/^Port\s+.*PVID/i', $line))
 					$state = 'ports';
+				$desc_pos = strpos ($line, 'Port Description');
 				break;
 			case 'ports':
+				if (FALSE !== $desc_pos)
+					$line = substr ($line, 0, $desc_pos);
 				if (isset ($current['name']))
 				{
 					if (preg_match('/^\s+(\d.*)/', $line, $m))
@@ -1247,11 +1256,23 @@ function ios12TranslatePushQueue ($dummy_object_id, $queue, $dummy_vlan_names)
 			break;
 		case 'set mode':
 			$ret .= "interface ${cmd['arg1']}\n";
-			if ($cmd['arg2'] == 'trunk')
-				$ret .= "switchport trunk encapsulation dot1q\n";
+			switch($cmd['arg2']) {
+				case 'trunk':
+					$ret .= "switchport trunk encapsulation dot1q\n";
+					break;
+				default:
+					$ret .= "no switchport trunk encapsulation dot1q\n";
+					break;
+			}
 			$ret .= "switchport mode ${cmd['arg2']}\n";
-			if ($cmd['arg2'] == 'trunk')
-				$ret .= "no switchport trunk native vlan\nswitchport trunk allowed vlan none\n";
+			switch($cmd['arg2']) {
+				case 'trunk':
+					$ret .= "no switchport trunk native vlan\nswitchport trunk allowed vlan none\n";
+					break;
+				default:
+					$ret .= "no switchport trunk native vlan\nno switchport trunk allowed vlan\n";
+					break;
+			}
 			$ret .= "exit\n";
 			break;
 		case 'begin configuration':
@@ -1489,11 +1510,12 @@ function vrp55TranslatePushQueue ($dummy_object_id, $queue, $dummy_vlan_names)
 				'access' => "undo port trunk allow-pass vlan all\n" .
 					"port trunk allow-pass vlan 1\n" .
 					"undo port trunk pvid vlan\n",
-				'trunk' => "undo port default vlan\n",
+				'trunk' => "undo port discard tagged-packet\n" .
+					"undo port default vlan\n",
 			);
 			$after = array
 			(
-				'access' => '',
+				'access' => "port discard tagged-packet\n",
 				'trunk' => "undo port trunk allow-pass vlan 1\n",
 			);
 			$ret .= "interface ${cmd['arg1']}\n";
@@ -1585,11 +1607,12 @@ function vrp85TranslatePushQueue ($dummy_object_id, $queue, $dummy_vlan_names)
 				'access' => "undo port trunk allow-pass vlan all\n" .
 					"port trunk allow-pass vlan 1\n" .
 					"undo port trunk pvid vlan\n",
-				'trunk' => "undo port default vlan\n",
+				'trunk' => "undo port discard tagged-packet\n" .
+					"undo port default vlan\n",
 			);
 			$after = array
 			(
-				'access' => '',
+				'access' => "port discard tagged-packet\n",
 				'trunk' => "undo port trunk allow-pass vlan 1\n",
 			);
 			$ret .= "interface ${cmd['arg1']}\n";
