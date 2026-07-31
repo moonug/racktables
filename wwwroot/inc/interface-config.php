@@ -885,6 +885,7 @@ function serializeTagStats ($taginfo)
 		'ipv4vs' => ' IPv4 virtual service(s)',
 		'ipv4rspool' => ' IPv4 real server pool(s)',
 		'vst' => ' VLAN switch template(s)',
+		'vlandomain' => ' VLAN domain(s)',
 		'ipvs' => ' VS group(s)',
 	);
 	$stats = array ("tag ID = ${taginfo['id']}");

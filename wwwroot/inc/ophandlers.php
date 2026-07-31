@@ -3345,10 +3345,11 @@ function cleanupUCS()
 
 function getOpspec()
 {
-	global $pageno, $tabno, $op, $opspec_list;
-	if (!array_key_exists ($pageno . '-' . $tabno . '-' . $op, $opspec_list))
+	global $opspec_list;
+	$key = getOpsecKey();
+	if (!array_key_exists ($key, $opspec_list))
 		throw new RackTablesError ('key not found in opspec_list', RackTablesError::INTERNAL);
-	$ret = $opspec_list[$pageno . '-' . $tabno . '-' . $op];
+	$ret = $opspec_list[$key];
 	if
 	(
 		! array_key_exists ('table', $ret) ||
@@ -3357,6 +3358,12 @@ function getOpspec()
 	)
 		throw new RackTablesError ('malformed array structure in opspec_list', RackTablesError::INTERNAL);
 	return $ret;
+}
+
+function getOpsecKey() {
+	global $pageno, $tabno, $op;
+	
+	return $pageno . '-' . $tabno . '-' . $op;
 }
 
 function unlinkPort ()
@@ -3541,12 +3548,18 @@ function tableHandler()
 		$retcode = 49;
 		break;
 	case 'UPDATE':
+		$set_args = buildOpspecColumns ($opspec, 'set_arglist');
+		$where_args = buildOpspecColumns ($opspec, 'where_arglist');
+		$conjunction = array_fetch ($opspec, 'conjunction', 'AND');
+
+		callHook("opsecUpdateBefore_hook", getOpsecKey(), $set_args, $where_args, $conjunction);
+		
 		usePreparedUpdateBlade
 		(
 			$opspec['table'],
-			buildOpspecColumns ($opspec, 'set_arglist'),
-			buildOpspecColumns ($opspec, 'where_arglist'),
-			array_fetch ($opspec, 'conjunction', 'AND')
+			$set_args,
+			$where_args,
+			$conjunction
 		);
 		$retcode = 51;
 		break;
@@ -3581,12 +3594,14 @@ function editIPv4Net ()
 	$name = genericAssertion ('name', 'string0');
 	$comment = genericAssertion ('comment', 'string0');
 	$taglist = genericAssertion ('taglist', 'array0');
+	$old_data = spotEntity('ipv4net', $net_id);
 	usePreparedUpdateBlade
 	(
 		'IPv4Network',
 		array ('name' => $name, 'comment' => $comment),
 		array ('id' => $net_id)
 	);
+	callHook('commitEditNetworkAfter_hook', 'ipv4net', $net_id, $old_data, $name, $comment, $taglist);
 	rebuildTagChainForEntity ('ipv4net', $net_id, buildTagChainFromIds ($taglist), TRUE);
 	$netdata = spotEntity ('ipv4net', $net_id);
 	showFuncMessage (__FUNCTION__, 'OK', array ("${netdata['ip']}/${netdata['mask']}"));
@@ -3599,12 +3614,14 @@ function editIPv6Net ()
 	$name = genericAssertion ('name', 'string0');
 	$comment = genericAssertion ('comment', 'string0');
 	$taglist = genericAssertion ('taglist', 'array0');
+	$old_data = spotEntity('ipv6net', $net_id);
 	usePreparedUpdateBlade
 	(
 		'IPv6Network',
 		array ('name' => $name, 'comment' => $comment),
 		array ('id' => $net_id)
 	);
+	callHook('commitEditNetworkAfter_hook', 'ipv6net', $net_id, $old_data, $name, $comment, $taglist);
 	rebuildTagChainForEntity ('ipv6net', $net_id, buildTagChainFromIds ($taglist), TRUE);
 	$netdata = spotEntity ('ipv6net', $net_id);
 	showFuncMessage (__FUNCTION__, 'OK', array ("${netdata['ip']}/${netdata['mask']}"));
@@ -3649,7 +3666,7 @@ function renameObjectPorts()
 		{
 			try
 			{
-				commitUpdatePort ($object_id, $port['id'], $canon_pn, $port['oif_id'], $port['label'], $port['l2address'], $port['reservation_comment']);
+				commitUpdatePort ($object_id, $port['id'], $canon_pn, $port['iif_id'] . '-' . $port['oif_id'], $port['label'], $port['l2address'], $port['reservation_comment']);
 				$n++;
 			}
 			catch (InvalidArgException $iae)

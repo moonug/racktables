@@ -25,12 +25,14 @@ function formatPortLinkHints ($object_id)
 	);
 	foreach ($linkStatus as $portname => $link_info)
 	{
-		$hidden_lines = array();
-		$hidden_lines[] = $portname . ': ' . $link_info['status'];
-		if (isset ($link_info['speed']))
-			$hidden_lines[] = 'Speed: ' . $link_info['speed'];
-		if (isset ($link_info['duplex']))
-			$hidden_lines[] = 'Duplex: ' . $link_info['duplex'];
+	$hidden_lines = array();
+	$hidden_lines[] = htmlspecialchars ($portname . ': ' . $link_info['status'], ENT_QUOTES, 'UTF-8');
+	if (isset ($link_info['speed']))
+		$hidden_lines[] = htmlspecialchars ('Speed: ' . $link_info['speed'], ENT_QUOTES, 'UTF-8');
+	if (isset ($link_info['duplex']))
+		$hidden_lines[] = htmlspecialchars ('Duplex: ' . $link_info['duplex'], ENT_QUOTES, 'UTF-8');
+	if (isset ($link_info['info']))
+		$hidden_lines[] = htmlspecialchars ('Info: ' . $link_info['info'], ENT_QUOTES, 'UTF-8');
 		if (count ($hidden_lines))
 			$result[$portname]['popup'] = implode ('<br>', $hidden_lines);
 		$visible_part = getImageHREF (array_fetch ($statusmap, $link_info['status'], '16x16t'));
