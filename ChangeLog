@@ -37,6 +37,7 @@
 	update: add a server configuration report (same as before install/upgrade)
 	update: new modular port type 'SFP28'
 	update: allow to delete local user accounts (Mantis#1089)
+	update: able to assign tags to VLAN domains
 	update: show names in allocated units when assigning rackspace (Mantis#1711)
 	update: drop support for $localreports
 	update: display file comment in the SELECT (Mantis#1419)
@@ -52,6 +53,7 @@
 0.21.0 2017-10-01
 	update: better display objects that have no common name
 	update: highlight RackCode syntax in the Permissions viewer too
+	update: new config var 8021Q_DELETE_ON_PULL_LISTSRC (auto-remove missing 802.1Q ports on pull)
 	update: refine delivery of rack thumb images
 	update: new plugin architecture
 	update: add support for IP-over-InfiniBand L2 addresses
