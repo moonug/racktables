@@ -24,6 +24,7 @@ try {
 		// Security context is built on the requested page/tab/bypass data,
 		// do not override.
 		fixContext();
+		GlobalContext::getCurrent()->new(["source" => "ui"]);
 		redirectIfNecessary();
 		assertPermission();
 		header ('Content-Type: text/html; charset=UTF-8');
@@ -50,6 +51,9 @@ try {
 		break;
 
 	case 'chrome':
+		// we don't want static files to be corrupted by error messgaes
+		ini_set('display_errors', '0');
+
 		require_once 'inc/init.php';
 		require_once 'inc/solutions.php';
 		proxyStaticURI (genericAssertion ('uri', 'string'));
@@ -175,6 +179,7 @@ try {
 		require_once 'inc/init.php';
 		require_once 'inc/ajax-interface.php';
 		require_once 'inc/solutions.php';
+		GlobalContext::getCurrent()->new(["source" => "ui"]);
 		try
 		{
 			$ac = genericAssertion ('ac', 'string');
@@ -219,6 +224,7 @@ try {
 			if ($op == 'addFile' && !isset($_FILES['file']['error']))
 				throw new RackTablesError ('File upload error, check upload_max_filesize in php.ini', RackTablesError::MISCONFIGURED);
 			fixContext();
+			GlobalContext::getCurrent()->new(["source" => "ui"]);
 			// This could be a malformed request rather than an internal error, but spelling
 			// that in proper detail would require finer checks.
 			if
@@ -271,6 +277,7 @@ try {
 		fixContext();
 		assertPermission();
 		$helper = assertStringArg ('helper');
+		GlobalContext::getCurrent()->new(["source" => "ui"]);
 
 		header ('Content-Type: text/html; charset=UTF-8');
 		// call the main handler - page or tab handler.

@@ -201,8 +201,9 @@ function generateSLBConfig2 ($triplet_list)
 				foreach ($triplet['ports'] as $port_row)
 				{
 					$is_mark = ($port_row['proto'] == 'MARK');
+					$fwmark_view = considerGivenConstraint($lb_cell, '[fwmark as VIP]') ? '%VIP%' : 'fwmark %MARK%';
 					$p_parser = clone $tr_parser;
-					$p_parser->addMacro ('VS_HEADER', $is_mark ? 'fwmark %MARK%' : '%VIP% %VPORT%');
+					$p_parser->addMacro ('VS_HEADER', $is_mark ? $fwmark_view : '%VIP% %VPORT%');
 					$p_parser->addMacro ('PROTO', $is_mark ? 'TCP' : $port_row['proto']);
 					$p_parser->addMacro ($is_mark ? 'MARK' : 'VPORT', $port_row['vport']);
 					foreach ($vs_cell['ports'] as $vport)

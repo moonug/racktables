@@ -2,21 +2,21 @@
 // http://www.openjs.com/scripts/forms/live_validation/
 // (Live Validator 1.00.A Beta)
 // It was declared as released under BSD license at that moment.
-// The content below is a verbatim copy.
+//
+// 11-04-2023: fix the class manipulation using classList
 
 var Validate = {
 	elements:[],
 	//Some General purpose functions
 	hasClass:function(ele,cls) {
-		return ele.className.match(new RegExp('(\\s|^)'+cls+'(\\s|$)'));
+		return ele.classList.contains(cls);
 	},
 	addClass:function (ele,cls) {
-		if (!this.hasClass(ele,cls)) ele.className += " "+cls;
+		if (!this.hasClass(ele,cls)) ele.classList.add(cls);
 	},
 	removeClass:function (ele,cls) {
 		if (this.hasClass(ele,cls)) {
-			var reg = new RegExp('(\\s|^)'+cls+'(\\s|$)');
-			ele.className=ele.className.replace(reg,' ');
+			ele.classList.remove(cls);
 		}
 	},
 	stopEvent:function(e) {
@@ -121,7 +121,7 @@ var Validate = {
 		var all_elements = document.getElementsByTagName("*");
 		var ths = this;
 		for(var i=0;ele=all_elements[i],i<all_elements.length;i++) {
-			if(!ele.className.match(new RegExp('(\\s|^)live\-validate(\\s|$)'))) continue;
+			if(!ele.classList.contains('live-validate')) continue;
 			this.elements.push(ele);
 			//Attach the keyup event to the function. We are doing this in a round-about way because we need the 'this' keyword functionality
 			if(ele.getAttribute("allowedkeys")) ele.onkeypress = function(e) {

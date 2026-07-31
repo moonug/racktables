@@ -1186,7 +1186,7 @@ function renderEditObjectForm()
 
 	echo '<table border=0 width=100%><tr><td>';
 	startPortlet ('history');
-	renderObjectHistory ($object_id);
+	callHook('renderObjectHistory', $object_id);
 	finishPortlet();
 	echo '</td></tr></table>';
 }
@@ -3081,7 +3081,7 @@ function renderIPv4NetworkAddresses ($range)
 		echo is_string ($override) ? $override : $row_html;
 	}
 	// end of iteration
-	if (permitted (NULL, NULL, 'set_reserve_comment'))
+	if (permitted ('ipaddress', 'properties', 'editAddress') || permitted (NULL, NULL, 'set_reserve_comment'))
 		addJSInternal ('js/inplace-edit.js');
 
 	echo "</table>";
@@ -3217,7 +3217,7 @@ function renderIPv6NetworkAddresses ($netinfo)
 		echo "</td></tr>";
 	}
 	echo "</table>";
-	if (permitted (NULL, NULL, 'set_reserve_comment'))
+	if (permitted ('ipaddress', 'properties', 'editAddress') || permitted (NULL, NULL, 'set_reserve_comment'))
 		addJSInternal ('js/inplace-edit.js');
 }
 
@@ -5988,6 +5988,16 @@ function formatIfTypeVariants ($variants, $select_name)
 		$select[$key] = (count ($variants) == 1 ? '' : $text); // empty string if there is simple single variant
 		$weights[$key] = $popularity_count;
 	}
+
+	// optional: pick best variant by a shared OIF, if the helper is available
+	if (function_exists ('guessCommonOif') && isset ($item) &&
+		$best_common_oif = guessCommonOif($item['left']['portinfo'], $item['right']['portinfo'])
+	) {
+		$best_key = "a_id:{$item['left']['portinfo']['id']},b_id:{$item['right']['portinfo']['id']},a_oif:{$best_common_oif},b_oif:{$best_common_oif}";
+		if (isset ($weights[$best_key]))
+			$weights[$best_key] = max($weights) + 1;
+	}
+
 	arsort ($weights, SORT_NUMERIC);
 	$sorted_select = array();
 	foreach (array_keys ($weights) as $key)
