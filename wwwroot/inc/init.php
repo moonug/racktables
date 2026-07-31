@@ -25,6 +25,7 @@ require_once 'remote.php';
 require_once 'caching.php';
 require_once 'slb.php';
 require_once 'slbv2.php';
+require_once 'global-context.php';
 
 // secret.php may be missing, in which case this is a special fatal error
 if (! fileSearchExists ($path_to_secret_php))
@@ -41,7 +42,10 @@ connectDB();
 transformRequestData();
 $configCache = loadConfigDefaults();
 
-if (getConfigVar ('DB_VERSION') != CODE_VERSION)
+// $upgrade_check (optional, default TRUE): set to FALSE before including
+// init.php to skip the DB_VERSION vs CODE_VERSION gate (used by the
+// installer/upgrade module, which is not bootstrapped through init.php).
+if (($upgrade_check ?? TRUE) && getConfigVar ('DB_VERSION') != CODE_VERSION)
 {
 	echo '<p align=justify>This Racktables installation seems to be ' .
 		'just upgraded to version ' . CODE_VERSION . ', while the '.
@@ -122,6 +126,16 @@ $pageheaders = array
 );
 addCSSInternal ('css/pi.css');
 
+// see registerRealm()
+global $realmRegistry;
+$realmRegistry = [];
+
+// Need for inject locks on tables
+// that are accessed through hooks in port operations.
+// example: commitAddPort and hook commitAddPortRealBefore_hook
+global $port_ops_locking_tables;
+$port_ops_locking_tables = array();
+
 if (! isset ($script_mode) || $script_mode !== TRUE)
 {
 	// A successful call to authenticate() always generates autotags and somethimes
@@ -172,6 +186,32 @@ $expl_tags = array();
 $impl_tags = array();
 // Initial chain for the current target.
 $target_given_tags = array();
+
+if (extension_loaded('openssl') && version_compare(PHP_VERSION, '5.3.0', '>=')) {
+	$session_id_random_bytes = openssl_random_pseudo_bytes(20);
+} else {
+	$session_id_random_bytes = '';
+	$fp = @fopen('/dev/urandom', 'rb');
+	if ($fp !== false) {
+		$data = fread($fp, 20);
+		fclose($fp);
+		if ($data !== false) {
+			$session_id_random_bytes = $data;
+		}
+	}
+
+	if (strlen($session_id_random_bytes) !== 20) {
+		throw new RackTablesError('Unable to generate random bytes for global context (for session_id)');
+	}
+}
+
+GlobalContext::getCurrent()->new(
+	[
+		"session_id" => hash('sha256', $session_id_random_bytes),
+		"server_name" => gethostname(),
+		"source" => "script"
+	]
+);
 
 // Now we've finished let plugins know
 callHook ('initFinished');
