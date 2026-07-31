@@ -1264,6 +1264,7 @@ ENDOFTRIGGER;
 			break;
 		case '0.21.0':
 			$query[] = "UPDATE Port SET label = NULL WHERE label = ''";
+			$query[] = "INSERT INTO `Config` (varname, varvalue, vartype, emptyok, is_hidden, is_userdefined, description) VALUES ('8021Q_DELETE_ON_PULL_LISTSRC', 'false', 'string', 'yes', 'no', 'no', 'List source: switch devices which are allowed to lose switchports on 802.1Q pull')";
 			$query[] = "DELETE FROM RackThumbnail";
 			$query[] = "ALTER TABLE TagTree ADD COLUMN color mediumint unsigned DEFAULT NULL AFTER tag";
 
@@ -1359,6 +1360,7 @@ INSERT INTO `Config` (varname, varvalue, vartype, emptyok, is_hidden, is_userdef
 				(1656, 1656)";
 			$query[] = "UPDATE Config SET varvalue = CONCAT(varvalue, '; 16=1592')
 				WHERE varname = 'DEFAULT_PORT_OIF_IDS' AND 0 = INSTR(varvalue, '16=')";
+			$query[] = "ALTER TABLE `TagStorage` MODIFY COLUMN `entity_realm` ENUM('file','ipv4net','ipv4rspool','ipv4vs','ipvs','ipv6net','location','object','rack','user','vst','vlandomain') NOT NULL DEFAULT 'object'";
 			$query[] = "UPDATE Config SET varname = 'VIRTUAL_OBJ_CSV' WHERE varname = 'VIRTUAL_OBJ_LISTSRC'";
 			$query[] = "UPDATE Config SET varvalue = '0.21.2' WHERE varname = 'DB_VERSION'";
 			break;
