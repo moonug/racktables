@@ -805,7 +805,6 @@ function renderTrunkPortControls ($vswitch, $vdom, $port_name, $vlanport)
 	}
 	echo '</td></tr></table>';
 	echo '</td></tr></table>';
-	echo '</td>';
 }
 
 function renderVLANInfo ($vlan_ck)

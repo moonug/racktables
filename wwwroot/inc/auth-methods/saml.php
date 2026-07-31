@@ -10,10 +10,6 @@ $auth_methods['saml'] = array
 // a wrapper for SAML auth method
 function authenticated_via_saml($userinfo = NULL)
 {
-	// Leave a mean to fix things: the admin user is always authenticated locally.
-	if (isset ($userinfo['user_id']) && $userinfo['user_id'] == 1)
-		return call_auth_method_op ('database', 'authenticate', $userinfo);
-
 	global $SAML_options, $auto_tags, $remote_username, $remote_displayname;
 	if (! file_exists ($SAML_options['simplesamlphp_basedir'] . '/lib/_autoload.php'))
 		throw new RackTablesError ('Configured for SAML authentication, but simplesaml is not found.', RackTablesError::MISCONFIGURED);
