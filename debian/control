@@ -1,0 +1,24 @@
+Source: racktables
+Section: net
+Priority: optional
+Maintainer: RackTables Maintainers <moonug@gmail.com>
+Build-Depends: 	debhelper (>=9)
+Standards-Version: 4.1.0
+Homepage: https://github.com/moonug/racktables
+Vcs-Git: https://github.com/moonug/racktables.git
+
+Package: racktables
+Architecture: all
+Depends: ${shlibs:Depends}
+    ,${misc:Depends}
+    ,php
+    ,php-cli
+    ,php-gd
+    ,php-mysql
+    ,php-mbstring
+    ,php-bcmath
+    ,php-snmp
+    ,apache2 | httpd
+Description: RackTables datacenter and server room management
+	RackTables is a datacenter and server room management framework.
+	See https://racktables.org for details.

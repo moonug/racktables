@@ -32,8 +32,13 @@ install-static: wwwroot/css wwwroot/js wwwroot/pix
 	find $(DESTDIR)$(staticdir) -type d -a -name '.git' -exec rm -rf \{\} \; -prune
 
 install-applib: wwwroot/inc
-	$(INSTALL_DIR) $(DESTDIR)$(applibdir)/inc
-	$(INSTALL_DATA) wwwroot/inc/*.php $(DESTDIR)$(applibdir)
+	$(INSTALL_DIR) $(DESTDIR)$(applibdir)
+	for f in wwwroot/inc/*.php; do \
+		case "$$f" in */secret.php|*/local.php) continue;; esac; \
+		$(INSTALL_DATA) "$$f" $(DESTDIR)$(applibdir)/; \
+	done
+	$(INSTALL_DIR) $(DESTDIR)$(applibdir)/auth-methods
+	$(INSTALL_DATA) wwwroot/inc/auth-methods/*.php $(DESTDIR)$(applibdir)/auth-methods
 
 install-index: wwwroot/index.php
 	$(INSTALL_DIR) $(DESTDIR)$(indexdir)
