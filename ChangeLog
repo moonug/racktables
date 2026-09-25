@@ -24,6 +24,7 @@
 	bugfix: throw on device configuration errors reported by the remote gateway
 	bugfix: guard against a NULL request context in the global context helpers
 	bugfix: tolerate non-array results from the exec8021QDeployAlter hook
+	bugfix: make the 0.21.x upgrade batches work on MySQL 8
 	bugfix: exclude secret.php and local.php from the installed application library
 0.22.0 2022-02-15
 	update: drop support for PHP 5.x
