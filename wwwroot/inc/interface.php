@@ -4405,7 +4405,10 @@ function renderAutoPortsForm ($object_id)
 	echo "<caption>The following ports can be quickly added:</caption>";
 	echo "<tr><th>type</th><th>name</th></tr>";
 	foreach (getAutoPorts ($info) as $autoport)
-		echo "<tr><td>" . $ptlist[$autoport['type']] . "</td><td>${autoport['name']}</td></tr>";
+	{
+		list (, $oif_id) = parsePortIIFOIF ($autoport['type']);
+		echo "<tr><td>" . $ptlist[$oif_id] . "</td><td>${autoport['name']}</td></tr>";
+	}
 	printOpFormIntro ('generate');
 	echo "<tr><td colspan=2 align=center>";
 	echo "<input type=submit value='Generate'>";
@@ -5564,6 +5567,8 @@ function dynamic_title_decoder_throwing ($path_position)
 		{
 			case 'ipaddress':
 				$net = spotNetworkByIP (ip_parse ($_REQUEST['ip']));
+				if (! isset ($net)) // no covering network; chained decoders may provide a fallback title
+					return array ('name' => '', 'params' => array());
 				$ret = array
 				(
 					'name' => $net['ip'] . '/' . $net['mask'],
