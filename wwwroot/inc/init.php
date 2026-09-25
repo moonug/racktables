@@ -130,12 +130,6 @@ addCSSInternal ('css/pi.css');
 global $realmRegistry;
 $realmRegistry = [];
 
-// Need for inject locks on tables
-// that are accessed through hooks in port operations.
-// example: commitAddPort and hook commitAddPortRealBefore_hook
-global $port_ops_locking_tables;
-$port_ops_locking_tables = array();
-
 if (! isset ($script_mode) || $script_mode !== TRUE)
 {
 	// A successful call to authenticate() always generates autotags and somethimes
