@@ -4,16 +4,18 @@
 # framework. See accompanying file "COPYING" for the full copyright and
 # licensing information.
 
+function buildInsert ($vlist)
+{
+	$ret= 'INSERT INTO Dictionary (dict_key, chapter_id, dict_value, dict_sticky) VALUES ';
+	$ret .= implode (', ', $vlist);
+	return $ret;
+}
+
+// Calling this function twice in the same process is legal (the upgrade
+// test does that), so the buildInsert helper above lives at the file scope.
 function reloadDictionary ($rows_per_query = 25)
 {
 	global $dictionary;
-
-	function buildInsert ($vlist)
-	{
-		$ret= 'INSERT INTO Dictionary (dict_key, chapter_id, dict_value, dict_sticky) VALUES ';
-		$ret .= implode (', ', $vlist);
-		return $ret;
-	}
 
 	// isNaturalNumber() depends on functions.php, which is not involved in an upgrade (see index.php).
 	$rows_per_query = (int) $rows_per_query;
