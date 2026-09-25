@@ -33,7 +33,7 @@ class UpgradeTest extends RTTestCase
 		{
 			$dbver = $version;
 			$db_name = getDBName();
-			$mysql_bin = '/usr/bin/mysql';
+			$mysql_bin = getenv ('RT_MYSQL_BIN') ?: '/usr/bin/mysql';
 			$dbxlink->exec ("DROP DATABASE ${db_name}");
 			$dbxlink->exec ("CREATE DATABASE ${db_name} CHARACTER SET utf8 COLLATE utf8_general_ci");
 			// FIXME: Importing the dump for 0.20.0 (and likely for the subsequent releases) fails when the configured
@@ -53,12 +53,12 @@ class UpgradeTest extends RTTestCase
 				ob_start ();
 				executeUpgradeBatch ($batchid);
 				$output = ob_get_clean ();
-				$this->assertNotContains ('queries failed', $output, "Upgrading from ${version} failed at ${batchid}");
+				$this->assertStringNotContainsString ('queries failed', $output, "Upgrading from ${version} failed at ${batchid}");
 			}
 			ob_start ();
 			executeUpgradeBatch ('dictionary');
 			$output = ob_get_clean ();
-			$this->assertNotContains ('queries failed', $output, "Upgrading from ${version} failed when reloading dictionary");
+			$this->assertStringNotContainsString ('queries failed', $output, "Upgrading from ${version} failed when reloading dictionary");
 		}
 	}
 }
