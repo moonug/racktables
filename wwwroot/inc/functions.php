@@ -6834,46 +6834,73 @@ function addDesiredPort (&$desiredPorts, $port_name, $port_type_id, $port_label,
 	);
 }
 
+// Used in plugins to implement user-level lock for ports
+function lockPortObject_hook() {
+	global $dbxlink;
+	$dbxlink->exec ('LOCK TABLES Port WRITE, PortLog WRITE, Link READ');
+}
+
+function unlockPortObject_hook() {
+	global $dbxlink;
+	$dbxlink->exec ('UNLOCK TABLES');
+}
+
+// Used in plugins to implement user-level lock for MACs
+function lockPortMacs_hook($all_l2addresses)
+{
+	return [];
+}
+
+function unlockPortMacs_hook($locked_l2addresses)
+{
+	// do nothing
+}
+
 // synchronizes the list of the object ports to the desired list of ports
 // $desiredPorts is a list of ports in getObjectPortsAndLinks format.
 // required port fields are name, iif_id, oif_id, label and l2address.
 // $desiredPorts can be filled by addDesiredPort function using commitAddPort format
 function replaceObjectPorts ($object_id, $desiredPorts)
 {
-	global $dbxlink;
 	$to_delete = $to_update = $real_ports = array();
 
 	// The check that does not require access to the database goes first.
 	foreach (array_keys ($desiredPorts) as $k)
 		$desiredPorts[$k]['l2address'] = l2addressForDatabase ($desiredPorts[$k]['l2address']);
 
+	$acquired_locks = array();
+
 	// Further processing must be done with exclusive access to the table. Even when the
 	// only changes requested are to add ports w/o MAC addresses or to update existing
 	// ports in a way that does not introduce new MAC addresses, it is impossible to
 	// tell reliably which ports require which actions without locking the table first.
-	global $port_ops_locking_tables;
-	$lock_str = 'LOCK TABLES Port WRITE, PortLog WRITE, Link READ';
-	foreach ($port_ops_locking_tables as $table => $lock_type) {
-		$lock_str .= ", $table $lock_type";
-	}
-	$dbxlink->exec ($lock_str);
-	foreach (getObjectPortsAndLinksTerse ($object_id) as $port)
-	{
-		$key = "{$port['name']}-{$port['iif_id']}";
-		if (! array_key_exists ($key, $desiredPorts))
-		{
-			$to_delete[] = $port;
-			continue;
-		}
-		if ($port['l2address'] != $desiredPorts[$key]['l2address'] || $port['label'] != $desiredPorts[$key]['label'])
-			$to_update[$key] = $port;
-		$real_ports[$key] = 1;
-	}
-	$to_add = array_diff_key ($desiredPorts, $real_ports);
+	callHook('lockPortObject_hook', $object_id);
 
-	try
-	{
-		assertUniqueL2Addresses (reduceSubarraysToColumn (array_merge ($to_update, $to_add), 'l2address'), $object_id);
+	try {
+		foreach (getObjectPortsAndLinksTerse ($object_id) as $port)
+		{
+			$key = "{$port['name']}-{$port['iif_id']}";
+			if (! array_key_exists ($key, $desiredPorts))
+			{
+				$to_delete[] = $port;
+				continue;
+			}
+			if ($port['l2address'] != $desiredPorts[$key]['l2address'] || $port['label'] != $desiredPorts[$key]['label'])
+				$to_update[$key] = $port;
+			$real_ports[$key] = 1;
+		}
+		$to_add = array_diff_key ($desiredPorts, $real_ports);
+
+		// Acquire user-level locks for all L2 addresses involved (sorted to prevent deadlocks)
+		$all_l2addresses = reduceSubarraysToColumn (array_merge ($to_update, $to_add), 'l2address');
+
+		// new l2addresses must be locked too
+		foreach ($to_update as $key => $_) {
+			$all_l2addresses[] = $desiredPorts[$key]['l2address'];
+		}
+		$acquired_locks = callHook('lockPortMacs_hook', $all_l2addresses);
+		assertUniqueL2Addresses ($all_l2addresses, $object_id);
+
 		// Make the actual changes.
 		foreach ($to_delete as $port)
 			if ($port['link_count'] != 0)
@@ -6903,13 +6930,12 @@ function replaceObjectPorts ($object_id, $desiredPorts)
 				$port['l2address']
 			);
 	}
-	catch (Exception $e)
+	finally
 	{
-		$dbxlink->exec ('UNLOCK TABLES');
-		throw $e;
+		callHook('unlockPortMacs_hook', $acquired_locks);
+		callHook('unlockPortObject_hook', $object_id);
 	}
 
-	$dbxlink->exec ('UNLOCK TABLES');
 	showSuccess (sprintf ('Added ports: %u, changed: %u, deleted: %u', count ($to_add), count ($to_update), count ($to_delete)));
 }
 

@@ -1716,33 +1716,36 @@ function getResidentRackIDs ($object_id)
 	return $result->fetchAll (PDO::FETCH_COLUMN);
 }
 
+// Used in plugins to implement user-level lock for ports
+function lockCommitAddPort_hook() {
+	global $dbxlink;
+	$dbxlink->exec ('LOCK TABLES Port WRITE');
+}
+
+function unlockCommitAddPort_hook() {
+	global $dbxlink;
+	$dbxlink->exec ('UNLOCK TABLES');
+}
+
 function commitAddPort ($object_id, $port_name, $port_type_id, $port_label, $port_l2address)
 {
-	global $dbxlink;
 	$db_l2address = l2addressForDatabase ($port_l2address);
 	list ($iif_id, $oif_id) = parsePortIIFOIF ($port_type_id);
 	// The conditional table locking is less relevant now due to replaceObjectPorts().
 	if ($db_l2address != '') {
-		global $port_ops_locking_tables;
-		$lock_str = 'LOCK TABLES Port WRITE';
-		foreach ($port_ops_locking_tables as $table => $lock_type) {
-			$lock_str .= ", $table $lock_type";
-		}
-		$dbxlink->exec ($lock_str);
+		callHook('lockCommitAddPort_hook', $db_l2address);
 	}
 	try
 	{
 		assertUniqueL2Addresses (array ($db_l2address), $object_id);
 		$ret = commitAddPortReal ($object_id, $port_name, $iif_id, $oif_id, $port_label, $db_l2address);
 	}
-	catch (Exception $e)
+	finally
 	{
-		if ($db_l2address != '')
-			$dbxlink->exec ('UNLOCK TABLES');
-		throw $e;
+		if ($db_l2address != '') {
+			callHook('unlockCommitAddPort_hook', $db_l2address);
+		}
 	}
-	if ($db_l2address != '')
-		$dbxlink->exec ('UNLOCK TABLES');
 	return $ret;
 }
 
@@ -1776,32 +1779,35 @@ function getPortReservationComment ($port_id, $extrasql = '')
 	return $result->fetchColumn();
 }
 
+// Used in plugins to implement user-level lock for ports
+function lockCommitUpdatePort_hook() {
+	global $dbxlink;
+	$dbxlink->exec ('LOCK TABLES Port WRITE, PortLog WRITE');
+}
+
+function unlockCommitUpdatePort_hook() {
+	global $dbxlink;
+	$dbxlink->exec ('UNLOCK TABLES');
+}
+
 function commitUpdatePort ($object_id, $port_id, $port_name, $port_type_id, $port_label, $port_l2address, $port_reservation_comment)
 {
-	global $dbxlink;
 	$db_l2address = l2addressForDatabase ($port_l2address);
 	list ($iif_id, $oif_id) = parsePortIIFOIF ($port_type_id);
 	if ($db_l2address != '') {
-		global $port_ops_locking_tables;
-		$lock_str = 'LOCK TABLES Port WRITE, PortLog WRITE';
-		foreach ($port_ops_locking_tables as $table => $lock_type) {
-			$lock_str .= ", $table $lock_type";
-		}
-		$dbxlink->exec ($lock_str);
+		callHook('lockCommitUpdatePort_hook', $db_l2address);
 	}
 	try
 	{
 		assertUniqueL2Addresses (array ($db_l2address), $object_id);
 		commitUpdatePortReal ($object_id, $port_id, $port_name, $iif_id, $oif_id, $port_label, $db_l2address, $port_reservation_comment);
 	}
-	catch (Exception $e)
+	finally
 	{
-		if ($db_l2address != '')
-			$dbxlink->exec ('UNLOCK TABLES');
-		throw $e;
+		if ($db_l2address != '') {
+			callHook('unlockCommitUpdatePort_hook', $db_l2address);
+		}
 	}
-	if ($db_l2address != '')
-		$dbxlink->exec ('UNLOCK TABLES');
 }
 
 // The comment about commitAddPortReal() also applies here.
