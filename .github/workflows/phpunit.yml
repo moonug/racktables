@@ -72,3 +72,9 @@ jobs:
             echo "ERROR: deployment config shipped in package"
             exit 1
           fi
+      - name: Upload the .deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: racktables-deb
+          path: ../racktables_*.deb
+          if-no-files-found: error
