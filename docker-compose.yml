@@ -43,7 +43,7 @@ services:
     environment:
       <<: *database
       RT_ADMIN_PASSWORD: ${RT_ADMIN_PASSWORD:-admin}
-      RT_DEMO_DATA: ${RT_DEMO_DATA:-}
+      RT_DEMO_DATA: ${RT_DEMO_DATA:-1}
     entrypoint: ["php", "/usr/local/lib/racktables/app-init.php"]
     command: ["init"]
 

@@ -35,8 +35,9 @@ admin:
   passwordKey: admin-password
 
 # Load the sample inventory from scripts/init-sample-racks.sql into a fresh
-# database. Meant for demo instances; leave off for real data.
-demoData: false
+# database. On by default, because a fresh instance without any inventory is
+# hard to look at; set to false for real data.
+demoData: true
 
 serviceAccount:
   create: true
