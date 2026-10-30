@@ -15,6 +15,57 @@ The `master` branch is the fork's development branch. Updates from the
 original repository are merged from `upstream/master`. Pull requests are
 welcome.
 
+# Running with containers
+
+The repository ships an image with nginx and php-fpm, a compose file for a
+local stack and a Helm chart for Kubernetes. Both expect an external
+MySQL/MariaDB database, and the compose file provides one.
+
+## docker compose
+
+```
+RT_ADMIN_PASSWORD=changeme docker compose up -d --build
+```
+
+RackTables is then available at http://127.0.0.1:8080/ (user `admin`, the
+password from `RT_ADMIN_PASSWORD`, `admin` by default). The one-shot `db-init`
+service creates the schema and the administrator account before the web
+service starts; on a non-empty database it does nothing.
+
+Variables: `RT_DB_HOST`, `RT_DB_PORT`, `RT_DB_NAME`, `RT_DB_USER`,
+`RT_DB_PASSWORD`, `RT_ADMIN_PASSWORD`, `RT_HTTP_PORT`. The periodic jobs
+(VLAN domain synchronisation and LDAP cache cleanup) start with
+`--profile cron` and are scheduled by `RT_SYNCDOMAIN_SCHEDULE` and
+`RT_LDAP_CACHE_SCHEDULE`.
+
+## Helm
+
+```
+docker build -t racktables:0.22.1 .
+helm install racktables deploy/helm/racktables \
+  --set externalDatabase.host=mysql.example \
+  --set externalDatabase.password=secret \
+  --set admin.password=secret
+```
+
+The chart does not deploy a database. Prefer a Secret: `externalDatabase.existingSecret`
+and `admin.existingSecret` replace the plain values. The `-init` job (a
+post-install/post-upgrade hook) creates the schema, and the deployment stays
+not ready until it succeeds. `cron.syncdomain` is disabled by default because
+it talks to real switches.
+
+## Notes
+
+- The image does not contain `secret.php`. It is generated at start from the
+  environment (or from `RT_DB_PASSWORD_FILE`) into `/run/racktables/secret.php`.
+- After an image upgrade the database version differs from the code version.
+  Sign in as administrator and follow the link on the page to finish the
+  upgrade; with more than one replica do that while a single replica runs.
+- PHP sessions live in the container, so keep one replica or set
+  `service.sessionAffinity: ClientIP`.
+- The `ucssdk` gateway needs Python 2, which the image does not provide; the
+  other gateways work.
+
 # Welcome!
 Thank you for selecting RackTables as your datacenter management solution!
 If you are looking for documentation or wish to send feedback, please
