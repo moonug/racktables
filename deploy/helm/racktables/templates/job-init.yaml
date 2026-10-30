@@ -1,0 +1,41 @@
+{{- /*
+Creates the database schema and the administrator account when the database
+is empty. Runs as a hook after the resources of the release exist, because it
+needs the Secret; the application pods stay not ready until this job
+succeeds, so they receive no traffic before the schema is there.
+*/ -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "racktables.fullname" . }}-init
+  labels:
+    {{- include "racktables.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+    helm.sh/hook-weight: "0"
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        {{- include "racktables.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      automountServiceAccountToken: false
+      containers:
+        - name: init
+          image: {{ include "racktables.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["php", "/usr/local/lib/racktables/app-init.php", "init"]
+          env:
+            {{- include "racktables.env" . | nindent 12 }}
+          volumeMounts:
+            {{- include "racktables.secretVolumeMounts" . | nindent 12 }}
+            - name: runtime
+              mountPath: /run/racktables
+      volumes:
+        {{- include "racktables.secretVolumes" . | nindent 8 }}
+        - name: runtime
+          emptyDir: {}

@@ -1,0 +1,20 @@
+RackTables has been installed as {{ include "racktables.fullname" . }}.
+
+{{- if .Values.ingress.enabled }}
+Open http://{{ (index .Values.ingress.hosts 0).host }}/ to sign in.
+{{- else }}
+The Service is {{ .Values.service.type }}:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "racktables.fullname" . }} 8080:{{ .Values.service.port }}
+Then open http://127.0.0.1:8080/ and sign in as "admin".
+{{- end }}
+
+{{- if not .Values.admin.password }}
+No administrator password is configured (admin.password is empty). If the
+database was empty, the initialisation job failed on purpose: set
+admin.password (or admin.existingSecret) and run "helm upgrade" again.
+{{- end }}
+
+The database schema is created by the {{ include "racktables.fullname" . }}-init
+job. After an image upgrade the database version differs from the code
+version: sign in as an administrator and follow the link on the page to
+finish the upgrade.
