@@ -6,6 +6,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         cron \
         curl \
+        libnet-telnet-perl \
+        netcat-openbsd \
         nginx \
         openssh-client \
         perl \
