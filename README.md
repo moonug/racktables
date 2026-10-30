@@ -11,8 +11,8 @@ upstream release 0.22.1. Compared to upstream it adds:
 - hook-based port locking;
 - Debian packaging and GitHub Actions CI.
 
-The `master` branch mirrors upstream, the fork's work lives on `main`.
-Upstream fixes are merged regularly. Bug reports and pull requests are welcome.
+The `master` branch tracks upstream, the fork's work lives on
+`vendor-import`. Pull requests are welcome.
 
 # Welcome!
 Thank you for selecting RackTables as your datacenter management solution!
