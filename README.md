@@ -1,3 +1,19 @@
+# RackTables fork
+
+This repository is a fork of
+[RackTables/racktables](https://github.com/RackTables/racktables), based on
+upstream release 0.22.1. Compared to upstream it adds:
+
+- pluggable authentication methods (httpd, database, LDAP and SAML modules);
+- an 802.1Q pull-delete option and VLAN-related refinements;
+- a realm registry for object type definitions;
+- SQL strict mode for database sessions;
+- hook-based port locking;
+- Debian packaging and GitHub Actions CI.
+
+The `master` branch mirrors upstream, the fork's work lives on `main`.
+Upstream fixes are merged regularly. Bug reports and pull requests are welcome.
+
 # Welcome!
 Thank you for selecting RackTables as your datacenter management solution!
 If you are looking for documentation or wish to send feedback, please
