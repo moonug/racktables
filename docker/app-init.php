@@ -81,6 +81,8 @@ $tables = $pdo->query ('SHOW TABLES')->fetchAll (PDO::FETCH_COLUMN, 0);
 if (count ($tables))
 {
 	echo "database ${db_name} is already initialized\n";
+	if (rtFlag ('RT_DEMO_DATA'))
+		echo "RT_DEMO_DATA is ignored: the sample inventory loads into an empty database only\n";
 	exit (0);
 }
 

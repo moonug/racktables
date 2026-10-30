@@ -34,7 +34,8 @@ service starts; on a non-empty database it does nothing.
 
 Set `RT_DEMO_DATA=1` to load the sample inventory from
 `scripts/init-sample-racks.sql` into the fresh database — handy for a demo,
-not for real data.
+not for real data. It applies to an empty database only, so wipe the volume
+first (`docker compose down -v`) if the schema already exists.
 
 Variables: `RT_DB_HOST`, `RT_DB_PORT`, `RT_DB_NAME`, `RT_DB_USER`,
 `RT_DB_PASSWORD`, `RT_ADMIN_PASSWORD`, `RT_HTTP_PORT`. The periodic jobs
