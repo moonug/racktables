@@ -15,3 +15,12 @@ tests/.phpunit.result.cache
 Session.vim
 .netrwhist
 *~
+
+# debian build artifacts
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+debian/racktables/
+debian/racktables.debhelper.log
+debian/racktables.substvars
+debian/tmp/
