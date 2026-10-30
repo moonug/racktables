@@ -36,6 +36,8 @@ if (! isset ($racktables_gwdir)) // the directory containing the 'telnet' and 's
 	$racktables_gwdir = realpath ($racktables_rootdir . '/../gateways');
 if (! isset ($racktables_confdir)) // the directory containing secret.php (default is wwwroot/inc)
 	$racktables_confdir = dirname (__FILE__);
+if (getenv('RT_SECRET_FILE'))
+	$path_to_secret_php = getenv('RT_SECRET_FILE');
 if (! isset ($path_to_secret_php)) // you can overrride the path to secret.php separately from $racktables_confdir (legacy feature)
 	$path_to_secret_php = $racktables_confdir . '/secret.php';
 if (! isset ($racktables_plugins_dir)) // the directory where RT will load additional *.php files (like local.php) from
@@ -59,7 +61,7 @@ if (! isset ($local_staticdir)) // the directory where RT will search static fil
 // (re)connects to DB, stores PDO object in $dbxlink global var
 function connectDB()
 {
-	global $dbxlink, $pdo_dsn, $db_username, $db_password, $pdo_bufsize, $pdo_ssl_key, $pdo_ssl_cert, $pdo_ssl_ca;
+	global $dbxlink, $pdo_dsn, $db_username, $db_password, $pdo_bufsize, $pdo_ssl_key, $pdo_ssl_cert, $pdo_ssl_ca, $pdo_class;
 	$dbxlink = NULL;
 	$drvoptions = array
 	(
@@ -68,8 +70,6 @@ function connectDB()
 		// with, but which used to be off by default until MySQL 5.7. As soon as
 		// respective SQL queries and table columns become compliant with those options
 		// stop changing @@SQL_MODE but still keep SET NAMES in place.
-		// RackTables requires the strict SQL mode, which is not enabled by default
-		// in MariaDB <= 10.2.3.
 		PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES "utf8", @@SQL_MODE = CONCAT("STRICT_ALL_TABLES,", REPLACE(@@SQL_MODE, "NO_ZERO_DATE", ""))',
 	);
 	if (isset ($pdo_bufsize))
@@ -82,7 +82,13 @@ function connectDB()
 		$drvoptions[PDO::MYSQL_ATTR_SSL_CA] = $pdo_ssl_ca;
 	try
 	{
-		$dbxlink = new PDO ($pdo_dsn, $db_username, $db_password, $drvoptions);
+		if (isset ($pdo_class) && class_exists ($pdo_class))
+			$dbxlink = new $pdo_class ($pdo_dsn, $db_username, $db_password, $drvoptions);
+		else
+			$dbxlink = new PDO ($pdo_dsn, $db_username, $db_password, $drvoptions);
+
+		// TODO: this is a temporary measure for the migration period until MySQL configs have beed deployed everywhere
+		$dbxlink->exec("SET SESSION group_concat_max_len = 20000");
 	}
 	catch (PDOException $e)
 	{

@@ -1,3 +1,20 @@
+# RackTables fork
+
+This repository is a fork of
+[RackTables/racktables](https://github.com/RackTables/racktables), based on
+upstream release 0.22.1. Compared to upstream it adds:
+
+- pluggable authentication methods (httpd, database, LDAP and SAML modules);
+- an 802.1Q pull-delete option and VLAN-related refinements;
+- a realm registry for object type definitions;
+- SQL strict mode for database sessions;
+- hook-based port locking;
+- Debian packaging and GitHub Actions CI.
+
+The `master` branch is the fork's development branch. Updates from the
+original repository are merged from `upstream/master`. Pull requests are
+welcome.
+
 # Welcome!
 Thank you for selecting RackTables as your datacenter management solution!
 If you are looking for documentation or wish to send feedback, please
@@ -7,8 +24,8 @@ look for the respective links at [project's web-site](https://racktables.org).
 
 ## 1. Prepare the server
 
-RackTables uses a web-server with PHP (7.0 is the minimum required version, 7.1
-is the minimum tested version, 7.3 is the recommended version) for front-end and
+RackTables uses a web-server with PHP (7.4 is the minimum required version,
+8.2 is the minimum tested version, 8.3 is the recommended version) for front-end and
 a MySQL/MariaDB server version 5 or later for back-end. The most commonly used
 web-server for RackTables is Apache httpd.
 
@@ -142,7 +159,7 @@ and initialize the application.
 ## Release notes
 
 ### Upgrading to 0.22.0
-As of this release the minimum supported PHP version is 7.0.
+As of this release the minimum supported PHP version is 7.4.
 
 ### Upgrading to 0.21.2
 This version drops support for the `$localreports` global variable, which is

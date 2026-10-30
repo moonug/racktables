@@ -1,0 +1,5 @@
+racktables (0.22.1) unstable; urgency=medium
+
+  * Fork of RackTables based on upstream 0.22.1 with additional fixes.
+
+ -- RackTables Maintainers <moonug@gmail.com>  Fri, 31 Jul 2026 00:00:00 +0000

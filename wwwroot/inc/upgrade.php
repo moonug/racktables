@@ -1264,6 +1264,7 @@ ENDOFTRIGGER;
 			break;
 		case '0.21.0':
 			$query[] = "UPDATE Port SET label = NULL WHERE label = ''";
+			$query[] = "INSERT INTO `Config` (varname, varvalue, vartype, emptyok, is_hidden, is_userdefined, description) VALUES ('8021Q_DELETE_ON_PULL_LISTSRC', 'false', 'string', 'yes', 'no', 'no', 'List source: switch devices which are allowed to lose switchports on 802.1Q pull')";
 			$query[] = "DELETE FROM RackThumbnail";
 			$query[] = "ALTER TABLE TagTree ADD COLUMN color mediumint unsigned DEFAULT NULL AFTER tag";
 
@@ -1319,15 +1320,27 @@ INSERT INTO `Config` (varname, varvalue, vartype, emptyok, is_hidden, is_userdef
 			$query[] = "ALTER TABLE Atom MODIFY COLUMN rack_id int(10) unsigned NOT NULL";
 			$query[] = "ALTER TABLE Atom MODIFY COLUMN unit_no int(10) unsigned NOT NULL";
 			$query[] = "ALTER TABLE Atom MODIFY COLUMN atom enum('front','interior','rear') NOT NULL";
-			$query[] = "ALTER TABLE Atom ADD PRIMARY KEY (molecule_id, rack_id, unit_no, atom)";
+			// The primary key below covers molecule_id, and on MySQL 8 that makes
+			// InnoDB remove the foreign key's backing index, so release the index
+			// before adding the primary key and restore the constraint afterwards.
+			$query[] = "ALTER TABLE Atom DROP FOREIGN KEY `Atom-FK-molecule_id`";
 			$query[] = "ALTER TABLE Atom DROP KEY `Atom-FK-molecule_id`";
+			$query[] = "ALTER TABLE Atom ADD PRIMARY KEY (molecule_id, rack_id, unit_no, atom)";
+			$query[] = "ALTER TABLE Atom ADD CONSTRAINT `Atom-FK-molecule_id` FOREIGN KEY (`molecule_id`) REFERENCES `Molecule` (`id`) ON DELETE CASCADE";
 			$query[] = "UPDATE Config SET varvalue = '0.21.1' WHERE varname = 'DB_VERSION'";
 			break;
 		case '0.21.2':
-			$query[] = "ALTER TABLE MountOperation ADD UNIQUE KEY `old_molecule_id` (old_molecule_id)";
-			$query[] = "ALTER TABLE MountOperation ADD UNIQUE KEY `new_molecule_id` (new_molecule_id)";
+			// Same MySQL 8 index replacement as with the Atom primary key above:
+// release the foreign keys and their indexes before adding the unique
+// keys, then restore the foreign keys.
+			$query[] = "ALTER TABLE MountOperation DROP FOREIGN KEY `MountOperation-FK-old_molecule_id`";
+			$query[] = "ALTER TABLE MountOperation DROP FOREIGN KEY `MountOperation-FK-new_molecule_id`";
 			$query[] = "ALTER TABLE MountOperation DROP KEY `MountOperation-FK-old_molecule_id`";
 			$query[] = "ALTER TABLE MountOperation DROP KEY `MountOperation-FK-new_molecule_id`";
+			$query[] = "ALTER TABLE MountOperation ADD UNIQUE KEY `old_molecule_id` (old_molecule_id)";
+			$query[] = "ALTER TABLE MountOperation ADD UNIQUE KEY `new_molecule_id` (new_molecule_id)";
+			$query[] = "ALTER TABLE MountOperation ADD CONSTRAINT `MountOperation-FK-old_molecule_id` FOREIGN KEY (`old_molecule_id`) REFERENCES `Molecule` (`id`) ON DELETE CASCADE";
+			$query[] = "ALTER TABLE MountOperation ADD CONSTRAINT `MountOperation-FK-new_molecule_id` FOREIGN KEY (`new_molecule_id`) REFERENCES `Molecule` (`id`) ON DELETE CASCADE";
 			$query[] = "ALTER TABLE IPv4Allocation MODIFY type ENUM('regular','shared','virtual','router','point2point','sharedrouter') NOT NULL DEFAULT 'regular'";
 			$query[] = "ALTER TABLE IPv6Allocation MODIFY type ENUM('regular','shared','virtual','router','point2point','sharedrouter') NOT NULL DEFAULT 'regular'";
 			$query[] = "INSERT INTO Chapter (`id`, `sticky`, `name`) VALUES (39,'no','UPS models')";
@@ -1359,6 +1372,7 @@ INSERT INTO `Config` (varname, varvalue, vartype, emptyok, is_hidden, is_userdef
 				(1656, 1656)";
 			$query[] = "UPDATE Config SET varvalue = CONCAT(varvalue, '; 16=1592')
 				WHERE varname = 'DEFAULT_PORT_OIF_IDS' AND 0 = INSTR(varvalue, '16=')";
+			$query[] = "ALTER TABLE `TagStorage` MODIFY COLUMN `entity_realm` ENUM('file','ipv4net','ipv4rspool','ipv4vs','ipvs','ipv6net','location','object','rack','user','vst','vlandomain') NOT NULL DEFAULT 'object'";
 			$query[] = "UPDATE Config SET varname = 'VIRTUAL_OBJ_CSV' WHERE varname = 'VIRTUAL_OBJ_LISTSRC'";
 			$query[] = "UPDATE Config SET varvalue = '0.21.2' WHERE varname = 'DB_VERSION'";
 			break;
@@ -1379,6 +1393,9 @@ INSERT INTO `Config` (varname, varvalue, vartype, emptyok, is_hidden, is_userdef
 			$query[] = "UPDATE Config SET varvalue = '0.22.0' WHERE varname = 'DB_VERSION'";
 			break;
 		case '0.22.1':
+			// 0.21.0 already inserts this row in the 0.21.x -> 0.22.x path;
+			// installs from the 0.22.0 dump (or upstream-based installs) lack it.
+			$query[] = "INSERT IGNORE INTO `Config` (varname, varvalue, vartype, emptyok, is_hidden, is_userdefined, description) VALUES ('8021Q_DELETE_ON_PULL_LISTSRC', 'false', 'string', 'yes', 'no', 'no', 'List source: switch devices which are allowed to lose switchports on 802.1Q pull')";
 			$query[] = "UPDATE Config SET varvalue = '0.22.1' WHERE varname = 'DB_VERSION'";
 			break;
 		case 'dictionary':
