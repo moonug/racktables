@@ -143,6 +143,7 @@ if ($fork_slots > 1 and ! $do_fork)
 	throw new RackTablesError ('PHP extension \'pcntl\' not found, can not use childs', RackTablesError::MISCONFIGURED);
 $switches_working = 0;
 $switchesdone = 0;
+$i_am_child = FALSE;
 foreach ($switch_queue as $object)
 {
 	if ($do_fork)
