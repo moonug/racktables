@@ -18,7 +18,7 @@ Depends: ${shlibs:Depends}
     ,php-mbstring
     ,php-bcmath
     ,php-snmp
-    ,apache2 | httpd
+    ,httpd
 Description: RackTables datacenter and server room management
 	RackTables is a datacenter and server room management framework.
 	See https://racktables.org for details.
