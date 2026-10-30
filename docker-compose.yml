@@ -1,0 +1,81 @@
+name: racktables
+
+# RackTables needs an empty database, an initialised one, and only then a web
+# server: the database is created by the one-shot db-init service, not by the
+# application container, so that replicas never race on schema creation.
+
+x-database: &database
+  RT_DB_HOST: db
+  RT_DB_PORT: "3306"
+  RT_DB_NAME: ${RT_DB_NAME:-racktables}
+  RT_DB_USER: ${RT_DB_USER:-racktables}
+  RT_DB_PASSWORD: ${RT_DB_PASSWORD:-racktables}
+  RT_SECRET_FILE: /run/racktables/secret.php
+
+x-application: &application
+  build: .
+  image: racktables:${RT_IMAGE_TAG:-0.22.1}
+  restart: unless-stopped
+
+services:
+  db:
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${RT_DB_NAME:-racktables}
+      MARIADB_USER: ${RT_DB_USER:-racktables}
+      MARIADB_PASSWORD: ${RT_DB_PASSWORD:-racktables}
+      MARIADB_ROOT_PASSWORD: ${RT_DB_ROOT_PASSWORD:-root}
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  db-init:
+    <<: *application
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      <<: *database
+      RT_ADMIN_PASSWORD: ${RT_ADMIN_PASSWORD:-admin}
+    entrypoint: ["php", "/usr/local/lib/racktables/app-init.php"]
+    command: ["init"]
+
+  racktables:
+    <<: *application
+    depends_on:
+      db:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    ports:
+      - "${RT_HTTP_PORT:-8080}:80"
+    environment: *database
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/healthz.php"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  # Periodic jobs: VLAN domain synchronisation and LDAP cache cleanup.
+  # Enabled with `docker compose --profile cron up`.
+  cron:
+    <<: *application
+    profiles: ["cron"]
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *database
+      RT_SYNCDOMAIN_SCHEDULE: ${RT_SYNCDOMAIN_SCHEDULE:-*/5 * * * *}
+      RT_LDAP_CACHE_SCHEDULE: ${RT_LDAP_CACHE_SCHEDULE:-17 3 * * *}
+    entrypoint: ["/usr/local/bin/cron-entrypoint.sh"]
+
+volumes:
+  db-data:
