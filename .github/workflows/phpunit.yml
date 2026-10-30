@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: ['**']
   pull_request:
 
 permissions:
@@ -67,6 +67,7 @@ jobs:
           deb=$(ls -1 ../racktables_*.deb | head -1)
           echo "Built: $deb"
           dpkg-deb -c "$deb" | grep -E 'auth-methods/(common|ldap|saml)\.php' || { echo "auth-methods missing"; exit 1; }
+          dpkg-deb -c "$deb" | grep -q 'usr/share/doc/racktables/copyright' || { echo "copyright file missing"; exit 1; }
           if dpkg-deb -c "$deb" | grep -E '(inc|auth-methods)/(secret|local)\.php'; then
             echo "ERROR: deployment config shipped in package"
             exit 1

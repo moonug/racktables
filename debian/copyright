@@ -1,0 +1,22 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: RackTables
+Source: https://github.com/moonug/racktables
+Comment: This is a fork of RackTables/racktables based on upstream 0.22.1.
+ Bundled third-party components (JavaScript libraries, icons and artwork)
+ are listed with their respective licenses in the COPYING file, which is
+ installed in this directory.
+
+Files: *
+Copyright: 2006-2026 Denis Ovsienko and RackTables contributors
+License: GPL-2
+ This program is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; version 2 of the License.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ On Debian systems, the complete text of the GNU General Public
+ License version 2 can be found in "/usr/share/common-licenses/GPL-2".
