@@ -31,6 +31,10 @@ spec:
           command: ["php", "/usr/local/lib/racktables/app-init.php", "init"]
           env:
             {{- include "racktables.env" . | nindent 12 }}
+            {{- if .Values.demoData }}
+            - name: RT_DEMO_DATA
+              value: "1"
+            {{- end }}
           volumeMounts:
             {{- include "racktables.secretVolumeMounts" . | nindent 12 }}
             - name: runtime

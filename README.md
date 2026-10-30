@@ -32,6 +32,10 @@ password from `RT_ADMIN_PASSWORD`, `admin` by default). The one-shot `db-init`
 service creates the schema and the administrator account before the web
 service starts; on a non-empty database it does nothing.
 
+Set `RT_DEMO_DATA=1` to load the sample inventory from
+`scripts/init-sample-racks.sql` into the fresh database — handy for a demo,
+not for real data.
+
 Variables: `RT_DB_HOST`, `RT_DB_PORT`, `RT_DB_NAME`, `RT_DB_USER`,
 `RT_DB_PASSWORD`, `RT_ADMIN_PASSWORD`, `RT_HTTP_PORT`. The periodic jobs
 (VLAN domain synchronisation and LDAP cache cleanup) start with
@@ -52,7 +56,8 @@ The chart does not deploy a database. Prefer a Secret: `externalDatabase.existin
 and `admin.existingSecret` replace the plain values. The `-init` job (a
 post-install/post-upgrade hook) creates the schema, and the deployment stays
 not ready until it succeeds. `cron.syncdomain` is disabled by default because
-it talks to real switches.
+it talks to real switches. `--set demoData=true` loads the sample inventory
+into a fresh database.
 
 ## Notes
 

@@ -34,6 +34,10 @@ admin:
   existingSecret: ""
   passwordKey: admin-password
 
+# Load the sample inventory from scripts/init-sample-racks.sql into a fresh
+# database. Meant for demo instances; leave off for real data.
+demoData: false
+
 serviceAccount:
   create: true
   annotations: {}
