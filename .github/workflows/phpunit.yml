@@ -37,7 +37,7 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: gd, mbstring, mysqli, pdo_mysql, snmp, bcmath, json, dom, xmlwriter, tokenizer
-          tools: phpunit-9
+          tools: phpunit:9.6
       - name: Create test database and secret.php
         env:
           RT_DB_HOST: mysql
