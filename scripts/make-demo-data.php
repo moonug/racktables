@@ -60,7 +60,7 @@ $sites = array (
 		'sid' => 4, 'space' => 'space/milky-way/orion/orion-vii/orion-outpost', 'vendor' => 'earthdome-systems',
 		'tier' => 'm', 'racks' => 7, 'servers' => 2, 'contact' => 'Tau'),
 	array ('slug' => 'babylon5', 'prefix' => 'b5', 'name' => 'Babylon 5 Station', 'region' => 'frontier',
-		'sid' => 5, 'space' => 'space/milky-way/epsilon-eridani/babylon-5/station', 'vendor' => 'earthdome-systems',
+		'sid' => 5, 'space' => 'space/milky-way/epsilon-eridani/babylon-5', 'vendor' => 'earthdome-systems',
 		'tier' => 'xl', 'racks' => 16, 'servers' => 4, 'contact' => 'Susan Ivanova'),
 	array ('slug' => 'epsilon3', 'prefix' => 'e3', 'name' => 'Epsilon III Great Machine', 'region' => 'frontier',
 		'sid' => 6, 'space' => 'space/milky-way/epsilon-eridani/epsilon-iii/great-machine', 'vendor' => 'minbari-optics',
@@ -416,7 +416,7 @@ foreach ($sites as $index => $site)
 			array ($space, 'env/prod', 'hw/' . $vendor . '/' . $models['router'], 'automation/managed'),
 			$problems);
 		$routers[] = $id;
-		$attrs[] = array ($id, OT_ROUTER, 3, sprintf ('%s-rtr-%02d.%s.isa.net', $site['prefix'], $i, $site['slug']));
+		$attrs[] = array ($id, OT_ROUTER, 3, sprintf ('%s-rtr-%02d.%s.isa-net.example.com', $site['prefix'], $i, $site['slug']));
 		$attrs[] = array ($id, OT_ROUTER, 1, sprintf ('SN-%s-R%02d', strtoupper ($site['prefix']), $i));
 		for ($p = 0; $p < 4; $p++)
 			add_port ($id, 'Hu0/0/' . $p, '800g');
@@ -438,7 +438,7 @@ foreach ($sites as $index => $site)
 			array ($space, 'env/prod', 'hw/' . $vendor . '/' . $models['switch'], 'automation/managed'),
 			$problems);
 		$cores[] = $id;
-		$attrs[] = array ($id, OT_SWITCH, 3, sprintf ('%s-core-%02d.%s.isa.net', $site['prefix'], $i, $site['slug']));
+		$attrs[] = array ($id, OT_SWITCH, 3, sprintf ('%s-core-%02d.%s.isa-net.example.com', $site['prefix'], $i, $site['slug']));
 		$attrs[] = array ($id, OT_SWITCH, 1, sprintf ('SN-%s-C%02d', strtoupper ($site['prefix']), $i));
 		for ($p = 0; $p < 16; $p++)
 			add_port ($id, 'Hu1/1/' . $p, $tier['dist_core']);
@@ -460,7 +460,7 @@ foreach ($sites as $index => $site)
 			array ($space, 'env/prod', 'hw/' . $vendor . '/' . $models['switch'], 'automation/managed'),
 			$problems);
 		$dists[] = $id;
-		$attrs[] = array ($id, OT_SWITCH, 3, sprintf ('%s-dist-%02d.%s.isa.net', $site['prefix'], $i, $site['slug']));
+		$attrs[] = array ($id, OT_SWITCH, 3, sprintf ('%s-dist-%02d.%s.isa-net.example.com', $site['prefix'], $i, $site['slug']));
 		$attrs[] = array ($id, OT_SWITCH, 1, sprintf ('SN-%s-D%02d', strtoupper ($site['prefix']), $i));
 		for ($p = 0; $p < 4; $p++)
 			add_port ($id, 'Hu1/1/' . $p, $tier['dist_core']);
@@ -479,7 +479,7 @@ foreach ($sites as $index => $site)
 			array ($space, 'env/prod', 'hw/' . $vendor . '/' . $models['fw'], 'automation/managed'),
 			$problems);
 		$fws[] = $id;
-		$attrs[] = array ($id, OT_FW, 3, sprintf ('%s-fw-%02d.%s.isa.net', $site['prefix'], $i, $site['slug']));
+		$attrs[] = array ($id, OT_FW, 3, sprintf ('%s-fw-%02d.%s.isa-net.example.com', $site['prefix'], $i, $site['slug']));
 		for ($p = 0; $p < 8; $p++)
 			add_port ($id, 'Te1/1/' . $p, '100g');
 		for ($p = 1; $p <= 4; $p++)
@@ -497,7 +497,7 @@ foreach ($sites as $index => $site)
 			array ($space, 'env/prod', 'hw/isa-standard/valen-lb', 'svc/load balancer', 'automation/managed'),
 			$problems);
 		$lbs[] = $id;
-		$attrs[] = array ($id, OT_SERVER, 3, sprintf ('%s-lb-%02d.%s.isa.net', $site['prefix'], $i, $site['slug']));
+		$attrs[] = array ($id, OT_SERVER, 3, sprintf ('%s-lb-%02d.%s.isa-net.example.com', $site['prefix'], $i, $site['slug']));
 		$attrs[] = array ($id, OT_SERVER, 1, sprintf ('SN-%s-L%02d', strtoupper ($site['prefix']), $i));
 		add_port ($id, 'eth0', '25g');
 		add_port ($id, 'eth1', '25g');
@@ -514,7 +514,7 @@ foreach ($sites as $index => $site)
 			array ($space, 'env/prod', 'hw/isa-standard/whitestar-console', 'automation/managed'),
 			$problems);
 		$consoles[] = $id;
-		$attrs[] = array ($id, OT_CONSOLE, 3, sprintf ('%s-cons-%02d.%s.isa.net', $site['prefix'], $i, $site['slug']));
+		$attrs[] = array ($id, OT_CONSOLE, 3, sprintf ('%s-cons-%02d.%s.isa-net.example.com', $site['prefix'], $i, $site['slug']));
 		for ($p = 0; $p < 16; $p++)
 			add_port ($id, 'serial' . $p, 'serial');
 		add_port ($id, 'eth0', '1g');
@@ -551,7 +551,7 @@ foreach ($sites as $index => $site)
 			array ($space, 'env/prod', 'hw/' . $vendor . '/' . $models['switch'], 'svc/monitoring', 'automation/managed'),
 			$problems);
 		$oob[$letter] = $oob_id;
-		$attrs[] = array ($oob_id, OT_SWITCH, 3, sprintf ('%s-oob-%s.%s.isa.net', $site['prefix'], strtolower ($letter), $site['slug']));
+		$attrs[] = array ($oob_id, OT_SWITCH, 3, sprintf ('%s-oob-%s.%s.isa-net.example.com', $site['prefix'], strtolower ($letter), $site['slug']));
 		for ($p = 1; $p <= 24; $p++)
 			add_port ($oob_id, 'Gi1/0/' . $p, '1g');
 		add_port ($oob_id, 'Te1/1/1', '40g');
@@ -573,7 +573,7 @@ foreach ($sites as $index => $site)
 				array ($space, 'env/prod', 'hw/' . $vendor . '/' . $models['switch'], 'automation/managed'),
 				$problems);
 			$access[$rack_number] = $access_id;
-			$attrs[] = array ($access_id, OT_SWITCH, 3, sprintf ('%s-acc-%02d.%s.isa.net', $site['prefix'], $rack_number, $site['slug']));
+			$attrs[] = array ($access_id, OT_SWITCH, 3, sprintf ('%s-acc-%02d.%s.isa-net.example.com', $site['prefix'], $rack_number, $site['slug']));
 			for ($p = 1; $p <= 4; $p++)
 				add_port ($access_id, 'Te1/1/' . $p, '40g');
 			for ($p = 1; $p <= 24; $p++)
@@ -595,7 +595,7 @@ foreach ($sites as $index => $site)
 						'svc/' . $service_tags[($rack_number + $k) % count ($service_tags)]),
 					$problems);
 				$servers[$rack_number][] = $srv;
-				$attrs[] = array ($srv, OT_SERVER, 3, sprintf ('%s-srv-%02d-%02d.%s.isa.net', $site['prefix'], $rack_number, $k, $site['slug']));
+				$attrs[] = array ($srv, OT_SERVER, 3, sprintf ('%s-srv-%02d-%02d.%s.isa-net.example.com', $site['prefix'], $rack_number, $k, $site['slug']));
 				$attrs[] = array ($srv, OT_SERVER, 1, sprintf ('SN-%s-S%02d%02d', strtoupper ($site['prefix']), $rack_number, $k));
 				add_port ($srv, 'eth0', '25g');
 				add_port ($srv, 'ipmi0', '1g');
@@ -1096,25 +1096,51 @@ $rackcode = <<<'END'
 # ANDs it with the tag of the site the object belongs to, so an operator can
 # only reach the site named in their role.
 #
-# Everyone with a local account can read the default tabs (the public
-# directory). Restricted sites are denied before any context is applied, so
-# only the administrator can open them. The first matching rule decides.
+# Predicates are reused rather than repeated: [crew] collects the operators,
+# [switching] selects the gear the 802.1Q engine knows about, and the rules
+# below build on both. The first matching rule decides; the deny comes before
+# any context is applied, so only the command can open a restricted site.
 
-allow {$username_sheridan} or {$username_admin}
+define [command] {$username_sheridan} or {$username_admin}
+
+define [earth-crew] {$username_ivanova}
+define [babylon5-crew] {$username_ivanova} or {$username_garibaldi}
+define [narn-crew] {$username_gkar}
+define [minbar-crew] {$username_delenn}
+define [centauri-crew] {$username_londo}
+define [allied-crew] [narn-crew] or [minbar-crew]
+define [crew] [earth-crew] or [babylon5-crew] or [allied-crew] or [centauri-crew]
+
+# Forwarding devices plus whatever else the 802.1Q engine manages, without
+# the quarantine sites and without gear that is not mounted in a rack.
+define [forwarding] {$typeid_7} or {$typeid_8} or {$typeid_798} or {$typeid_1644}
+define [switching] ([forwarding] or {$runs_8021Q}) and not ({restricted} or {$unmounted})
+
+allow [command]
 
 deny {restricted}
 
-context insert {earth-operator} on {$username_ivanova}
-context insert {babylon5-operator} on {$username_ivanova} or {$username_garibaldi}
-context insert {narn-operator} on {$username_gkar}
-context insert {minbar-operator} on {$username_delenn}
-context insert {centauri-operator} on {$username_londo}
+context insert {earth-operator} on [earth-crew]
+context insert {babylon5-operator} on [babylon5-crew]
+context insert {narn-operator} on [narn-crew]
+context insert {minbar-operator} on [minbar-crew]
+context insert {centauri-operator} on [centauri-crew]
 
 allow {earth-operator} and {earth}
 allow {babylon5-operator} and {babylon-5}
 allow {narn-operator} and {narn}
 allow {minbar-operator} and {minbar}
 allow {centauri-operator} and {centauri-prime}
+
+# Crews inspect ports and the saved 802.1Q configuration of switching gear
+# fleet-wide, not only inside their own site.
+allow [crew] and [switching] and ({$tab_ports} or {$tab_8021qports})
+
+# The security chief reads the change log of everything he can open.
+allow {$username_garibaldi} and not {restricted} and {$tab_log}
+
+# Allied worlds read each other's change logs.
+allow [allied-crew] and ({narn} or {minbar}) and {$tab_log}
 
 # Read-only directory for everyone else.
 allow {$tab_default}
@@ -1157,6 +1183,7 @@ out ("  (10003, '800GBase-DR8');");
 out ('INSERT INTO `PortInterfaceCompat` (`iif_id`, `oif_id`) VALUES (17, 10001), (18, 10002), (19, 10003);');
 out ('INSERT INTO `PortCompat` (`type1`, `type2`) VALUES (10001, 10001), (10002, 10002), (10003, 10003);');
 out ('');
+out ("REPLACE INTO `Config` VALUES ('enterprise','ISA Net','string','no','no','no','Organization name');");
 out ("REPLACE INTO `Config` VALUES ('IPV4LB_LISTSRC','{load balancer}','string','yes','no','no','List source: IPv4 load balancers');");
 out ('');
 
@@ -1173,6 +1200,47 @@ foreach ($objects as $object)
 		$object['type'], $object['asset'] === NULL ? 'NULL' : q ($object['asset']),
 		q ($object['problems']), q ($object['comment']));
 emit_insert ('Object', array ('id', 'name', 'label', 'objtype_id', 'asset_no', 'has_problems', 'comment'), $rows);
+
+# ObjectLog: the memorial of Babylon 4, the rebuilt Narn network, the site
+# fenced off by the Great Machine, station changes and commissioning records.
+$log_story = array (
+	'babylon4' => array (
+		array ('sinclair', 'Last telemetry received before the station vanished'),
+		array ('sinclair', 'Kept as a memorial, do not recommission'),
+	),
+	'narn' => array (
+		array ('gkar', 'Rebuilt after the occupation'),
+		array ('gkar', 'Firmware reloaded after the war'),
+	),
+	'epsilon3' => array (
+		array ('draal', 'Access restricted by the Great Machine'),
+	),
+);
+$object_log = array ();
+foreach ($objects as $object)
+{
+	if (in_array ($object['type'], array (OT_LOCATION, OT_ROW, OT_RACK)))
+		continue;
+	if (! isset ($log_story[$object['site']]))
+		continue;
+	foreach ($log_story[$object['site']] as $entry)
+		$object_log[] = array ($object['id'], $entry[0], $entry[1]);
+}
+foreach (array_slice ($site_devices['babylon5']['servers'][1], 0, 2) as $srv)
+	$object_log[] = array ($srv, 'ivanova', 'Joined the station-services pool');
+foreach ($site_devices['babylon5']['lbs'] as $lb)
+	$object_log[] = array ($lb, 'garibaldi', 'VIP moved after the tariff reform');
+foreach ($site_devices as $site_data)
+	foreach (array_merge ($site_data['routers'], $site_data['cores'], $site_data['dists']) as $id)
+		$object_log[] = array ($id, $site_data['config']['contact'],
+			'Commissioned as part of the ' . $site_data['config']['name'] . ' network');
+
+$rows = array ();
+$log_epoch = gmmktime (9, 0, 0, 1, 15, 2026);
+foreach ($object_log as $seq => $entry)
+	$rows[] = sprintf ('(%d, %s, %s, %s)', $entry[0], q ($entry[1]),
+		q (gmdate ('Y-m-d H:i:s', $log_epoch + 2220 * ($seq + 1))), q ($entry[2]));
+emit_insert ('ObjectLog', array ('object_id', 'user', 'date', 'content'), $rows);
 
 $rows = array ();
 foreach ($attrs as $attr)

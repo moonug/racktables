@@ -61,13 +61,17 @@ What is worth looking at:
   out of sync to show the deploy workflow on the 802.1Q sync tab.
 - **IPv6**: service addressing is IPv6-first (`fd00:<site>:<vlan>::/64`),
   IPv4 remains on management and on the Centauri legacy estate.
-- **Tags**: the tree follows space (`space/<galaxy>/<system>/<body>/<site>`),
+- **Tags**: the tree follows space (`space/<galaxy>/<system>/<body>[/<site>]`),
   hardware (`hw/<vendor>/<model>`) and service (`svc/...`, `env/...`,
   `security-class/restricted`).
+- **Log**: Babylon 4 keeps the telemetry of its last day as a memorial, the
+  Narn site records its rebuild, and every router, core and distribution
+  switch carries the commissioning entry of its site.
 - **Permissions**: sign in with the accounts below. RackCode turns each
   account into a role with a context modifier and ANDs the role with the
-  site tag: operators get the full site tabs of their own site, the default
-  tabs everywhere else, and no access to `security-class/restricted` sites.
+  site tag: operators get the full site tabs of their own site, the ports and
+  802.1Q configuration of switching gear fleet-wide, the default tabs
+  everywhere else, and no access to `security-class/restricted` sites.
 
 | User | Password | Scope |
 | --- | --- | --- |
