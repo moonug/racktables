@@ -1,7 +1,7 @@
 0.22.2
 	update: hide RackCode context on the access-denied page unless PERMISSION_DENIED_SHOW_CONTEXT is yes
 	bugfix: store user preference values without HTML entity encoding
-	update: show the last 30 object history rows, with a link to the full list
+	update: fold a long object history like a child list, keeping the latest rows visible
 	update: shorten TwentyFiveGigE, FortyGigabitEthernet and AppGigabitEthernet interface names
 0.22.1
 	bugfix: squelch some warnings with PHP 8.0 (GH #280 by Dirk Meyer)
