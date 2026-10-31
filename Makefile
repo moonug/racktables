@@ -45,3 +45,10 @@ install-index: wwwroot/index.php
 	$(INSTALL_DATA) wwwroot/index.php $(DESTDIR)$(indexdir)
 
 install: install-helpers install-static install-applib install-index
+
+# Development helpers.
+
+hooks:
+	git config core.hooksPath .githooks
+
+.PHONY: install install-docs install-helpers install-static install-applib install-index hooks

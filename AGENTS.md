@@ -26,6 +26,7 @@ docker build -t racktables:dev .                  # container image
 docker compose up -d --build --wait               # image + MariaDB + schema and sample data
 helm lint deploy/helm/racktables --set externalDatabase.password=x
 helm template ci deploy/helm/racktables --set externalDatabase.password=x
+make hooks                                        # pre-commit checks, once per clone
 ```
 
 `ci_setup_mysql.sh` refuses to run when the database or `wwwroot/inc/secret.php`
@@ -102,7 +103,8 @@ branches would reappear on the remote.
 ## Safety
 
 - Never commit `wwwroot/inc/secret.php`, `wwwroot/inc/local.php`, `*.phar` or
-  container build artifacts.
+  container build artifacts; the pre-commit hook installed by `make hooks`
+  rejects them and checks the syntax of staged PHP files.
 - Never touch `~/.my.cnf`; it belongs to the developer, not to the build.
 - Keep the sample data and the upgrade fixtures apart: `tests/data/*.sql` are
   old schemas, `scripts/init-sample-racks.sql` is inventory for a demo.
