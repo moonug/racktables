@@ -956,29 +956,6 @@ function modifyEntitySummary ($cell, $summary)
 	return $summary;
 }
 
-// A short child list stays whole. Folding starts only once at least three
-// names would be hidden, so a one-row remainder never gets its own spoiler.
-function foldChildSummary ($cell, $summary)
-{
-	if (! is_array ($summary) || ! isset ($cell['realm']) || $cell['realm'] !== 'object')
-		return $summary;
-	foreach ($summary as $name => $value)
-	{
-		if (! is_string ($name) || strpos ($name, 'Contains ') !== 0 || ! is_string ($value))
-			continue;
-		$children = explode ('<br>', $value);
-		if (count ($children) < 7)
-			continue;
-		$visible = array_slice ($children, 0, 4);
-		$hidden = array_slice ($children, 4);
-		$summary[$name] = implode ('<br>', $visible)
-			. '<br><details><summary>Show ' . count ($hidden) . ' more</summary>'
-			. implode ('<br>', $hidden)
-			. '</details>';
-	}
-	return $summary;
-}
-
 // renders 'summary' portlet, which persist on default tab of every realm page.
 // $values is a tricky array.
 // if its value is a string, it is treated as right td inner html, and the key is treated as left th text, colon appends there automatically.
@@ -989,7 +966,7 @@ function renderEntitySummary ($cell, $title, $values = array())
 {
 	global $page_by_realm;
 	// allow plugins to override summary table
-	$values = foldChildSummary ($cell, callHook ('modifyEntitySummary', $cell, $values));
+	$values = callHook ('modifyEntitySummary', $cell, $values);
 
 	startPortlet ($title);
 	echo "<table border=0 cellspacing=0 cellpadding=3 width='100%'>\n";
