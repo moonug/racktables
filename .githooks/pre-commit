@@ -1,0 +1,26 @@
+#!/bin/sh
+# Rejects commits that stage a file which must never be published, and syntax
+# errors in staged PHP sources. Install once with "make hooks".
+
+status=0
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+
+for file in $staged; do
+	case "$file" in
+	wwwroot/inc/secret.php|wwwroot/inc/local.php|*.phar|debian/files|debian/tmp/*|debian/.debhelper/*|debian/racktables/*)
+		echo "pre-commit: $file must not be committed" >&2
+		status=1
+		;;
+	esac
+done
+
+for file in $staged; do
+	case "$file" in
+	*.php)
+		php -l "$file" >/dev/null || status=1
+		;;
+	esac
+done
+
+exit $status
