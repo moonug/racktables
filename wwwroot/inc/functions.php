@@ -5179,13 +5179,82 @@ function searchEntitiesByText ($terms)
 		}
 	}
 	# Filter search results in a way in some realms to omit records that the
-	# user would not be able to browse anyway.
-	foreach (array ('object', 'ipv4net', 'ipv6net', 'ipv4rspool', 'ipv4vs', 'ipvs', 'file', 'rack', 'row', 'location') as $realm)
-		if (isset ($summary[$realm]))
-			foreach ($summary[$realm] as $key => $record)
-				if (! isolatedPermission ($realm, 'default', spotEntity ($realm, $record['id'])))
+	# user would not be able to browse anyway. Address and VLAN hits are
+	# included; a realm this map does not know stays as found.
+	return filterSearchSummary ($summary, 'searchEntityFor', 'searchResultVisible');
+}
+
+function searchEntityFor ($realm, $record)
+{
+	if ($realm === 'network')
+		return isset ($record['ip']) ? spotNetworkByIP ($record['ip']) : NULL;
+	if (! isset ($record['id']))
+		return NULL;
+	try
+	{
+		return spotEntity ($realm, $record['id']);
+	}
+	catch (EntityNotFoundException $e)
+	{
+		return NULL;
+	}
+}
+
+function searchResultVisible ($page, $tab, $entity)
+{
+	// permitted() must see this cell, not the search page that is open now.
+	if ($entity === NULL)
+		$entity = array ('realm' => $page, 'etags' => array(), 'atags' => array());
+	return isolatedPermission ($page, $tab, $entity);
+}
+
+// $entity_for ($realm, $record) resolves the cell that carries the hit's tags.
+// Address hits ask for realm "network". An unknown realm is left unchanged.
+function filterSearchSummary ($summary, $entity_for, $visible)
+{
+	global $pageno_by_etype;
+	$address_realms = array ('ipv4addressbydq', 'ipv6addressbydq', 'ipv4addressbydescr', 'ipv6addressbydescr');
+	foreach ($summary as $realm => $records)
+	{
+		if (! is_array ($records))
+			continue;
+		if (in_array ($realm, $address_realms, TRUE))
+		{
+			foreach ($records as $key => $record)
+			{
+				$net = call_user_func ($entity_for, 'network', $record);
+				if ($net === NULL || ! call_user_func ($visible, 'ipaddress', 'default', $net))
 					unset ($summary[$realm][$key]);
-	// clear empty search result realms
+			}
+		}
+		elseif ($realm === 'vlan')
+		{
+			foreach ($records as $key => $record)
+			{
+				$domain_id = isset ($record['domain_id']) ? $record['domain_id'] : NULL;
+				$domain = $domain_id === NULL ? NULL : call_user_func
+				(
+					$entity_for,
+					'vlandomain',
+					array ('id' => $domain_id)
+				);
+				if ($domain === NULL
+					|| ! call_user_func ($visible, 'vlan', 'default', NULL)
+					|| ! call_user_func ($visible, 'vlandomain', 'default', $domain))
+					unset ($summary[$realm][$key]);
+			}
+		}
+		elseif (isset ($pageno_by_etype[$realm]))
+		{
+			$page = $pageno_by_etype[$realm];
+			foreach ($records as $key => $record)
+			{
+				$entity = call_user_func ($entity_for, $realm, $record);
+				if ($entity === NULL || ! call_user_func ($visible, $page, 'default', $entity))
+					unset ($summary[$realm][$key]);
+			}
+		}
+	}
 	return array_filter ($summary, 'count');
 }
 

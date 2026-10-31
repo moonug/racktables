@@ -3144,6 +3144,11 @@ function getVLANSearchResult ($terms)
 	return $ret;
 }
 
+function searchLikePattern ($term)
+{
+	return '%' . addcslashes ($term, '\\%_') . '%';
+}
+
 function getSearchResultByField ($tablename, $retcolumns, $scancolumn, $terms, $ordercolumn = '', $exactness = 0)
 {
 	$query = 'SELECT ' . implode (', ', $retcolumns) . " FROM {$tablename} WHERE ";
@@ -3168,7 +3173,7 @@ function getSearchResultByField ($tablename, $retcolumns, $scancolumn, $terms, $
 			break;
 		default:
 			$query .= $pfx . "${scancolumn} LIKE ?";
-			$qparams[] = "%${term}%";
+			$qparams[] = searchLikePattern ($term);
 			break;
 		}
 		$pfx = ' OR ';
