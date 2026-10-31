@@ -19,7 +19,7 @@ class ObjectHistorySpoilerTest extends RTTestCase
 		$this->assertSame (1, ($older ? $older : $visible)[0]['ctime']);
 		$this->assertSame ($count, $visible[$visible_count - 1]['ctime']);
 		if ($older)
-			$this->assertSame ($count - 3, $visible[0]['ctime']);
+			$this->assertSame ($count - 29, $visible[0]['ctime']);
 	}
 
 	public function providerSplit ()
@@ -27,9 +27,10 @@ class ObjectHistorySpoilerTest extends RTTestCase
 		return array
 		(
 			array (0, 0, 0),
-			array (6, 6, 0),
-			array (7, 4, 3),
-			array (31, 4, 27),
+			array (31, 31, 0),
+			array (32, 32, 0),
+			array (33, 30, 3),
+			array (40, 30, 10),
 		);
 	}
 }

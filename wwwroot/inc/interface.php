@@ -2444,11 +2444,11 @@ END;
 }
 
 // Fold only when at least three rows would be hidden, same rule as a child
-// list. The latest rows stay visible; older rows sit above them.
+// list. The latest 30 rows stay visible; older rows sit above them.
 function objectHistorySpoilerSplit ($rows)
 {
-	$visible_rows = 4;
-	$min_rows = 7;
+	$visible_rows = 30;
+	$min_rows = $visible_rows + 3;
 	if (count ($rows) < $min_rows)
 		return array ($rows, array ());
 	return array

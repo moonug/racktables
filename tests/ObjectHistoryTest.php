@@ -16,11 +16,11 @@ class ObjectHistoryTest extends RTTestCase
 		usePreparedDeleteBlade ('ObjectHistory', array ('id' => self::$object_id));
 		self::$oldest = 'hist-oldest-' . getmypid ();
 		self::$newest = 'hist-newest-' . getmypid ();
-		for ($i = 0; $i < 31; $i++)
+		for ($i = 0; $i < 33; $i++)
 		{
 			if ($i == 0)
 				$comment = self::$oldest;
-			elseif ($i == 30)
+			elseif ($i == 32)
 				$comment = self::$newest;
 			else
 				$comment = 'hist-mid-' . $i;
@@ -68,7 +68,7 @@ class ObjectHistoryTest extends RTTestCase
 	public function testFoldsOlderRowsOnThePage ()
 	{
 		$html = $this->captureHistory ();
-		$this->assertStringContainsString ('<summary>Show 27 more</summary>', $html);
+		$this->assertStringContainsString ('<summary>Show 3 more</summary>', $html);
 		$this->assertStringNotContainsString ('Display last 30 items from 31', $html);
 		$this->assertStringNotContainsString ('Show full history', $html);
 		$details_end = strpos ($html, '</details>');
@@ -76,9 +76,9 @@ class ObjectHistoryTest extends RTTestCase
 		$older_html = substr ($html, 0, $details_end);
 		$visible_html = substr ($html, $details_end);
 		$this->assertStringContainsString (self::$oldest, $older_html);
-		$this->assertStringContainsString ('hist-mid-26', $older_html);
+		$this->assertStringContainsString ('hist-mid-2', $older_html);
 		$this->assertStringNotContainsString (self::$newest, $older_html);
-		$this->assertStringContainsString ('hist-mid-27', $visible_html);
+		$this->assertStringContainsString ('hist-mid-3', $visible_html);
 		$this->assertStringContainsString (self::$newest, $visible_html);
 		$this->assertStringNotContainsString (self::$oldest, $visible_html);
 	}
