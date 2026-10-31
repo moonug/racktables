@@ -1,0 +1,46 @@
+{{- if .Values.cron.syncdomain.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "racktables.fullname" . }}-syncdomain
+  labels:
+    {{- include "racktables.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cron.syncdomain.schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            {{- include "racktables.selectorLabels" . | nindent 12 }}
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          containers:
+            - name: syncdomain
+              image: {{ include "racktables.image" . }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              # The script includes inc/init.php relative to the working
+              # directory.
+              workingDir: /usr/share/racktables/wwwroot
+              # rt-cron.sh writes the configuration file first.
+              command: ["/usr/local/bin/rt-cron.sh", "php", "../scripts/syncdomain.php"]
+              args:
+                {{- toYaml .Values.cron.syncdomain.args | nindent 16 }}
+              env:
+                {{- include "racktables.env" . | nindent 16 }}
+              volumeMounts:
+                {{- include "racktables.secretVolumeMounts" . | nindent 16 }}
+                - name: runtime
+                  mountPath: /run/racktables
+                - name: tmp
+                  mountPath: /var/tmp
+          volumes:
+            {{- include "racktables.secretVolumes" . | nindent 12 }}
+            - name: runtime
+              emptyDir: {}
+            - name: tmp
+              emptyDir: {}
+{{- end }}

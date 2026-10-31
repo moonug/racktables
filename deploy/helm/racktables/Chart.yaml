@@ -1,0 +1,10 @@
+apiVersion: v2
+name: racktables
+description: RackTables datacenter and server room management framework
+type: application
+version: 0.1.0
+appVersion: "0.22.1"
+kubeVersion: ">=1.21.0-0"
+home: https://github.com/moonug/racktables
+sources:
+  - https://github.com/moonug/racktables

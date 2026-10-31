@@ -1,0 +1,10 @@
+.git
+.github
+tests
+debian
+deploy
+docker-compose.yml
+*.deb
+wwwroot/inc/secret.php
+wwwroot/inc/local.php
+tests/phpunit-*.phar

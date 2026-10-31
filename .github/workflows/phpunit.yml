@@ -79,3 +79,29 @@ jobs:
           name: racktables-deb
           path: racktables.deb
           if-no-files-found: error
+
+  containers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate the compose file
+        run: docker compose config -q
+      - name: Build and start the stack
+        run: docker compose up -d --build --wait
+      - name: Check the running instance
+        run: |
+          curl -fsS http://127.0.0.1:8080/healthz.php
+          curl -fsS -u admin:admin http://127.0.0.1:8080/index.php | grep -q RackTables
+      - name: Show container logs
+        if: failure()
+        run: docker compose logs
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v
+      - uses: azure/setup-helm@v4
+      - name: Lint and render the chart
+        run: |
+          helm lint deploy/helm/racktables --set externalDatabase.password=secret
+          helm template ci deploy/helm/racktables --set externalDatabase.password=secret > /dev/null
+          helm template ci deploy/helm/racktables --set externalDatabase.existingSecret=db-secret \
+            --set ingress.enabled=true --set cron.syncdomain.enabled=true > /dev/null

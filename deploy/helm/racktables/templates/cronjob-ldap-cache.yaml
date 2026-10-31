@@ -1,0 +1,38 @@
+{{- if .Values.cron.ldapCache.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "racktables.fullname" . }}-ldap-cache
+  labels:
+    {{- include "racktables.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cron.ldapCache.schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            {{- include "racktables.selectorLabels" . | nindent 12 }}
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          containers:
+            - name: ldap-cache
+              image: {{ include "racktables.image" . }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              workingDir: /usr/share/racktables/wwwroot
+              # rt-cron.sh writes the configuration file first.
+              command: ["/usr/local/bin/rt-cron.sh", "php", "../scripts/cleanup_ldap_cache.php"]
+              env:
+                {{- include "racktables.env" . | nindent 16 }}
+              volumeMounts:
+                {{- include "racktables.secretVolumeMounts" . | nindent 16 }}
+                - name: runtime
+                  mountPath: /run/racktables
+          volumes:
+            {{- include "racktables.secretVolumes" . | nindent 12 }}
+            - name: runtime
+              emptyDir: {}
+{{- end }}

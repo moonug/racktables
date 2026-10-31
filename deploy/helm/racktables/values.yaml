@@ -1,0 +1,83 @@
+# The chart deploys RackTables only. It expects an existing MySQL/MariaDB
+# database and never creates one.
+
+replicaCount: 1
+
+image:
+  repository: racktables
+  # Pin a version or a digest: the image is built locally or by your own
+  # pipeline, there is no published image under this name.
+  tag: "0.22.1"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+externalDatabase:
+  host: racktables-mysql
+  port: 3306
+  name: racktables
+  user: racktables
+  # Creates a Secret with the database password. Ignored when existingSecret
+  # is set.
+  password: ""
+  # Name of an existing Secret holding the password under passwordKey.
+  existingSecret: ""
+  passwordKey: db-password
+
+# The administrator account is created only when the database is empty.
+# Set password (or existingSecret) before installing against an empty
+# database, otherwise the initialisation job fails with a clear message.
+admin:
+  password: ""
+  existingSecret: ""
+  passwordKey: admin-password
+
+# Load the sample inventory from scripts/init-sample-racks.sql into a fresh
+# database. On by default, because a fresh instance without any inventory is
+# hard to look at; set to false for real data.
+demoData: true
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  # PHP sessions are local to a pod, so with replicaCount > 1 set ClientIP
+  # or users will lose their session when a request lands on another pod.
+  sessionAffinity: None
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: racktables.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+cron:
+  # VLAN domain synchronisation talks to real switches, so it stays off until
+  # an operator enables it.
+  syncdomain:
+    enabled: false
+    schedule: "*/5 * * * *"
+    args: ["--mode=pullall"]
+  ldapCache:
+    enabled: false
+    schedule: "17 3 * * *"
