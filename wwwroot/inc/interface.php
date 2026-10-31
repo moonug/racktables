@@ -1399,6 +1399,20 @@ function renderObjectPortRow ($port, $is_highlighted)
 	echo "</tr>";
 }
 
+// A short child list stays whole. Folding starts only once at least three
+// names would be hidden, so a one-row remainder never gets its own spoiler.
+function foldChildList ($children)
+{
+	if (count ($children) < 7)
+		return implode ('<br>', $children);
+	$visible = array_slice ($children, 0, 4);
+	$hidden = array_slice ($children, 4);
+	return implode ('<br>', $visible)
+		. '<br><details><summary>Show ' . count ($hidden) . ' more</summary>'
+		. implode ('<br>', $hidden)
+		. '</details>';
+}
+
 function renderObject ($object_id)
 {
 	global $nextorder, $virtual_obj_types;
@@ -1449,7 +1463,7 @@ function renderObject ($object_id)
 		$fmt_children = array();
 		foreach ($children_group as $child)
 			$fmt_children[] = mkCellA ($child);
-		$summary["Contains " . mb_strtolower(decodeObjectType ($objtype_id))] = implode ('<br>', $fmt_children);
+		$summary['Contains ' . mb_strtolower (decodeObjectType ($objtype_id))] = foldChildList ($fmt_children);
 	}
 	if ($info['has_problems'] == 'yes')
 		$summary[] = array ('<tr><td colspan=2 class=msg_error>Has problems</td></tr>');
