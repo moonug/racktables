@@ -37,7 +37,64 @@ class SearchFilterTest extends RTTestCase
 	/**
 	 * @group small
 	 */
-	public function testDropsAddressWithoutANetwork ()
+	public function testUserKeyUsesUserId ()
+	{
+		$this->assertSame (7, searchEntityId ('user', array ('user_id' => 7)));
+		$this->assertNull (searchEntityId ('user', array ('id' => 7)));
+		$this->assertSame (3, searchEntityId ('object', array ('id' => 3)));
+	}
+
+	/**
+	 * @group small
+	 */
+	public function testKeepsAddressWithoutANetworkWhenThePageIsAllowed ()
+	{
+		$summary = array
+		(
+			'ipv4addressbydq' => array
+			(
+				'addr' => array ('ip' => 'abcd'),
+			),
+		);
+		$entity_for = function ($realm, $record)
+		{
+			return NULL;
+		};
+		$visible = function ($page, $tab, $entity)
+		{
+			return $page === 'ipaddress' && $entity === NULL;
+		};
+		$filtered = filterSearchSummary ($summary, $entity_for, $visible);
+		$this->assertSame ($summary['ipv4addressbydq'], $filtered['ipv4addressbydq']);
+	}
+
+	/**
+	 * @group small
+	 */
+	public function testDropsAddressWithoutANetworkWhenThePageIsDenied ()
+	{
+		$summary = array
+		(
+			'ipv4addressbydq' => array
+			(
+				'addr' => array ('ip' => 'abcd'),
+			),
+		);
+		$entity_for = function ($realm, $record)
+		{
+			return NULL;
+		};
+		$visible = function ($page, $tab, $entity)
+		{
+			return FALSE;
+		};
+		$this->assertSame (array (), filterSearchSummary ($summary, $entity_for, $visible));
+	}
+
+	/**
+	 * @group small
+	 */
+	public function testChecksAddressAgainstItsNetworkPage ()
 	{
 		$summary = array
 		(
@@ -48,13 +105,17 @@ class SearchFilterTest extends RTTestCase
 		);
 		$entity_for = function ($realm, $record)
 		{
-			return NULL;
+			return array ('id' => $record['net_id'], 'realm' => 'ipv4net');
 		};
-		$visible = function ($page, $tab, $entity)
+		$seen = NULL;
+		$visible = function ($page, $tab, $entity) use (&$seen)
 		{
-			return TRUE;
+			$seen = $page;
+			return $page === 'ipv4net';
 		};
-		$this->assertSame (array (), filterSearchSummary ($summary, $entity_for, $visible));
+		$filtered = filterSearchSummary ($summary, $entity_for, $visible);
+		$this->assertSame ('ipv4net', $seen);
+		$this->assertSame ($summary['ipv4addressbydq'], $filtered['ipv4addressbydq']);
 	}
 
 	/**
@@ -62,6 +123,8 @@ class SearchFilterTest extends RTTestCase
 	 */
 	public function testLikePatternEscapesWildcards ()
 	{
-		$this->assertSame ('%a\\%b\\_c%', searchLikePattern ('a%b_c'));
+		$this->assertSame ('%a!%b!_c%', searchLikePattern ('a%b_c'));
+		$this->assertSame ('%a!!b%', searchLikePattern ('a!b'));
+		$this->assertSame ("name LIKE ? ESCAPE '!'", searchLikeExpr ('name'));
 	}
 }

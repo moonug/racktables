@@ -5184,15 +5184,41 @@ function searchEntitiesByText ($terms)
 	return filterSearchSummary ($summary, 'searchEntityFor', 'searchResultVisible');
 }
 
+// User accounts are stored under user_id, so a hit from that realm has no id.
+function searchEntityId ($realm, $record)
+{
+	global $SQLSchema;
+	$key = isset ($SQLSchema[$realm]['keycolumn']) ? $SQLSchema[$realm]['keycolumn'] : 'id';
+	return isset ($record[$key]) ? $record[$key] : NULL;
+}
+
 function searchEntityFor ($realm, $record)
 {
 	if ($realm === 'network')
-		return isset ($record['ip']) ? spotNetworkByIP ($record['ip']) : NULL;
-	if (! isset ($record['id']))
+	{
+		if (! isset ($record['ip']))
+			return NULL;
+		// A direct address hit already names its network. A name search does not.
+		if (! empty ($record['net_id']))
+		{
+			$net_realm = strlen ($record['ip']) == 16 ? 'ipv6net' : 'ipv4net';
+			try
+			{
+				return spotEntity ($net_realm, $record['net_id']);
+			}
+			catch (EntityNotFoundException $e)
+			{
+				return NULL;
+			}
+		}
+		return spotNetworkByIP ($record['ip']);
+	}
+	$id = searchEntityId ($realm, $record);
+	if ($id === NULL)
 		return NULL;
 	try
 	{
-		return spotEntity ($realm, $record['id']);
+		return spotEntity ($realm, $id);
 	}
 	catch (EntityNotFoundException $e)
 	{
@@ -5222,8 +5248,10 @@ function filterSearchSummary ($summary, $entity_for, $visible)
 		{
 			foreach ($records as $key => $record)
 			{
+				// The result link opens the network when one exists, and the address page otherwise.
 				$net = call_user_func ($entity_for, 'network', $record);
-				if ($net === NULL || ! call_user_func ($visible, 'ipaddress', 'default', $net))
+				$page = $net === NULL ? 'ipaddress' : $net['realm'];
+				if (! call_user_func ($visible, $page, 'default', $net))
 					unset ($summary[$realm][$key]);
 			}
 		}
