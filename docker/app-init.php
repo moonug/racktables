@@ -82,7 +82,14 @@ if (count ($tables))
 {
 	echo "database ${db_name} is already initialized\n";
 	if (rtFlag ('RT_DEMO_DATA'))
-		echo "RT_DEMO_DATA is ignored: the sample inventory loads into an empty database only\n";
+	{
+		$loaded = $pdo->query
+		(
+			"SELECT `script_text` FROM `Script` WHERE `script_name` = 'DemoDataLoaded'"
+		)->fetchColumn ();
+		if ($loaded !== '1')
+			rtFail ("demo inventory is missing or incomplete; set RT_DEMO_DATA=0 or recreate the database");
+	}
 	exit (0);
 }
 
@@ -119,7 +126,18 @@ if (rtFlag ('RT_DEMO_DATA'))
 	$demo = "${root}/scripts/init-demo-data.sql";
 	if (! is_readable ($demo))
 		rtFail ("${demo} is not readable");
-	$pdo->exec (file_get_contents ($demo));
+	$pdo->beginTransaction ();
+	try
+	{
+		$pdo->exec (file_get_contents ($demo));
+		$pdo->commit ();
+	}
+	catch (Throwable $e)
+	{
+		if ($pdo->inTransaction ())
+			$pdo->rollBack ();
+		rtFail ("demo inventory load failed: " . $e->getMessage ());
+	}
 	echo "demo inventory loaded\n";
 }
 

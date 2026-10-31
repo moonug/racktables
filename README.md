@@ -40,7 +40,7 @@ the schema already exists.
 ## The demo inventory
 
 The dataset is the network of ISA Net, a made-up Interstellar Alliance
-operator from the Babylon 5 universe. Ten locations, of which nine are live
+operator from the Babylon 5 universe. Ten sites, of which nine are live
 and Babylon 4 is a memorial, hold 786 devices in 92 racks and 25 rows:
 core, distribution and access switches, firewalls, load balancers, console
 servers, storage arrays, servers, PDUs and UPS units. Cabling follows a
@@ -54,11 +54,13 @@ What is worth looking at:
   labels, asset numbers and the 42U layout.
 - **Ports**: each port carries the right inner and outer interface, links
   carry cable IDs, and IPv4/IPv6 allocations sit on the ports.
-- **VLAN**: one domain per site, VLAN 100 management, 200 production (210
-  and 220 on the largest sites), 300 storage, 400 backup and 500 OOB.
+- **VLAN**: one domain per live site, VLAN 100 management, 200 production
+  (210 and 220 on the largest sites), 300 storage, 400 backup and 500 OOB.
   VLAN switch templates describe the uplink/downlink roles, desired 802.1Q
-  configurations are saved for every switch, and some switches are left
-  out of sync to show the deploy workflow on the 802.1Q sync tab.
+  configurations are saved for the access, distribution and core switches,
+  and some switches are left out of sync to show the deploy workflow on the
+  802.1Q sync tab. The memorial site and the row OOB switches stay outside
+  the domains.
 - **IPv6**: service addressing is IPv6-first (`fd00:<site>:<vlan>::/64`),
   IPv4 remains on management and on the Centauri legacy estate.
 - **Tags**: the tree follows space (`space/<galaxy>/<system>/<body>[/<site>]`),
@@ -77,7 +79,7 @@ What is worth looking at:
 | --- | --- | --- |
 | `sheridan` | `sheridan` | administrator, everything |
 | `ivanova` | `ivanova` | Earth, Babylon 5 |
-| `garibaldi` | `garibaldi` | Babylon 5 |
+| `garibaldi` | `garibaldi` | Babylon 5, change logs elsewhere |
 | `gkar` | `gkar` | Narn |
 | `delenn` | `delenn` | Minbar |
 | `londo` | `londo` | Centauri Prime |
@@ -108,8 +110,9 @@ The chart does not deploy a database. Prefer a Secret: `externalDatabase.existin
 and `admin.existingSecret` replace the plain values. The `-init` job (a
 post-install/post-upgrade hook) creates the schema, and the deployment stays
 not ready until it succeeds. `cron.syncdomain` is disabled by default because
-it talks to real switches. The demo inventory is loaded into a fresh
-database by default; `--set demoData=false` leaves it empty.
+it talks to real switches. The chart leaves the database empty by default;
+`--set demoData=true` loads the demo inventory (and its published demo
+accounts) into a fresh database.
 
 ## Notes
 
