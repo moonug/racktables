@@ -113,14 +113,14 @@ $statement = $pdo->prepare
 if (! $statement->execute (array (sha1 ($admin_password))))
 	rtFail ("cannot create the administrator account");
 
-# Optional sample inventory, useful for a demo instance.
+# Optional demo inventory: the ISA Net story from scripts/make-demo-data.php.
 if (rtFlag ('RT_DEMO_DATA'))
 {
-	$sample = "${root}/scripts/init-sample-racks.sql";
-	if (! is_readable ($sample))
-		rtFail ("${sample} is not readable");
-	$pdo->exec (file_get_contents ($sample));
-	echo "sample data loaded\n";
+	$demo = "${root}/scripts/init-demo-data.sql";
+	if (! is_readable ($demo))
+		rtFail ("${demo} is not readable");
+	$pdo->exec (file_get_contents ($demo));
+	echo "demo inventory loaded\n";
 }
 
 echo "database ${db_name} initialized\n";

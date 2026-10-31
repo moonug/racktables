@@ -32,10 +32,57 @@ password from `RT_ADMIN_PASSWORD`, `admin` by default). The one-shot `db-init`
 service creates the schema and the administrator account before the web
 service starts; on a non-empty database it does nothing.
 
-The sample inventory from `scripts/init-sample-racks.sql` is loaded into a
-fresh database by default. Set `RT_DEMO_DATA=0` for an empty one. It applies
-to an empty database only, so wipe the volume first (`docker compose down -v`)
-if the schema already exists.
+The demo inventory from `scripts/init-demo-data.sql` is loaded into a fresh
+database by default. Set `RT_DEMO_DATA=0` for an empty one. It applies to an
+empty database only, so wipe the volume first (`docker compose down -v`) if
+the schema already exists.
+
+## The demo inventory
+
+The dataset is the network of ISA Net, a made-up Interstellar Alliance
+operator from the Babylon 5 universe. Ten locations, of which nine are live
+and Babylon 4 is a memorial, hold 786 devices in 92 racks and 25 rows:
+core, distribution and access switches, firewalls, load balancers, console
+servers, storage arrays, servers, PDUs and UPS units. Cabling follows a
+speed ladder (1G management and OOB, 25G to servers, 40G access uplinks,
+100-400G to the core, 800G between sites) and the SQL adds the 200G, 400G
+and 800G port types this release does not have yet.
+
+What is worth looking at:
+
+- **Rackspace**: pick any rack and see front, rear and zero-U mounts, device
+  labels, asset numbers and the 42U layout.
+- **Ports**: each port carries the right inner and outer interface, links
+  carry cable IDs, and IPv4/IPv6 allocations sit on the ports.
+- **VLAN**: one domain per site, VLAN 100 management, 200 production (210
+  and 220 on the largest sites), 300 storage, 400 backup and 500 OOB.
+  VLAN switch templates describe the uplink/downlink roles, desired 802.1Q
+  configurations are saved for every switch, and some switches are left
+  out of sync to show the deploy workflow on the 802.1Q sync tab.
+- **IPv6**: service addressing is IPv6-first (`fd00:<site>:<vlan>::/64`),
+  IPv4 remains on management and on the Centauri legacy estate.
+- **Tags**: the tree follows space (`space/<galaxy>/<system>/<body>/<site>`),
+  hardware (`hw/<vendor>/<model>`) and service (`svc/...`, `env/...`,
+  `security-class/restricted`).
+- **Permissions**: sign in with the accounts below. RackCode turns each
+  account into a role with a context modifier and ANDs the role with the
+  site tag: operators get the full site tabs of their own site, the default
+  tabs everywhere else, and no access to `security-class/restricted` sites.
+
+| User | Password | Scope |
+| --- | --- | --- |
+| `sheridan` | `sheridan` | administrator, everything |
+| `ivanova` | `ivanova` | Earth, Babylon 5 |
+| `garibaldi` | `garibaldi` | Babylon 5 |
+| `gkar` | `gkar` | Narn |
+| `delenn` | `delenn` | Minbar |
+| `londo` | `londo` | Centauri Prime |
+| `guest` | `guest` | default tabs only |
+
+The SQL is generated, not hand-written: edit `scripts/make-demo-data.php` and
+run `php scripts/make-demo-data.php > scripts/init-demo-data.sql`. The
+generator is deterministic, so a regenerated file only differs when the
+model changes.
 
 Variables: `RT_DB_HOST`, `RT_DB_PORT`, `RT_DB_NAME`, `RT_DB_USER`,
 `RT_DB_PASSWORD`, `RT_ADMIN_PASSWORD`, `RT_HTTP_PORT`. The periodic jobs
@@ -57,7 +104,7 @@ The chart does not deploy a database. Prefer a Secret: `externalDatabase.existin
 and `admin.existingSecret` replace the plain values. The `-init` job (a
 post-install/post-upgrade hook) creates the schema, and the deployment stays
 not ready until it succeeds. `cron.syncdomain` is disabled by default because
-it talks to real switches. The sample inventory is loaded into a fresh
+it talks to real switches. The demo inventory is loaded into a fresh
 database by default; `--set demoData=false` leaves it empty.
 
 ## Notes

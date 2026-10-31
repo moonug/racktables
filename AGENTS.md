@@ -52,7 +52,9 @@ the package build and a container job. Match it before claiming a change works.
 - `gateways/` — perl and shell scripts RackTables runs to reach devices.
 - `plugins/` — optional plugins; the directory must exist.
 - `scripts/` — CLI entry points: `syncdomain.php`, `cleanup_ldap_cache.php`,
-  `reload_dictionary.php`, and the sample inventory `init-sample-racks.sql`.
+  `reload_dictionary.php`, the sample inventory `init-sample-racks.sql`, the
+  generated demo inventory `init-demo-data.sql` and its builder
+  `make-demo-data.php`.
 - `tests/` — PHPUnit suite and upgrade fixtures in `tests/data/` (database
   dumps, not demo data).
 - `debian/`, `Dockerfile`, `docker/`, `docker-compose.yml`,
