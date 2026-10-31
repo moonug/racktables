@@ -91,11 +91,17 @@ jobs:
       - name: Validate the compose file
         run: docker compose config -q
       - name: Build and start the stack
+        env:
+          RT_DEMO_DATA: "1"
         run: docker compose up -d --build --wait
       - name: Check the running instance
         run: |
           curl -fsS http://127.0.0.1:8080/healthz.php
-          curl -fsS -u admin:admin http://127.0.0.1:8080/index.php | grep -q RackTables
+          curl -fsS -u admin:admin http://127.0.0.1:8080/index.php | grep -q 'ISA Net'
+          curl -fsS -u ivanova:ivanova 'http://127.0.0.1:8080/index.php?page=object&tab=ports&object_id=100801' | grep -q 'Hu1/1/0'
+          curl -fsS -u ivanova:ivanova 'http://127.0.0.1:8080/index.php?page=object&tab=ports&object_id=100593' | grep -qi 'access denied'
+          curl -fsS -u gkar:gkar 'http://127.0.0.1:8080/index.php?page=object&tab=log&object_id=100628' | grep -q 'Commissioned'
+          curl -fsS -u guest:guest 'http://127.0.0.1:8080/index.php?page=object&tab=ports&object_id=100437' | grep -qi 'access denied'
       - name: Show container logs
         if: failure()
         run: docker compose logs
