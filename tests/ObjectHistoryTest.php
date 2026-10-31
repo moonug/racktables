@@ -9,8 +9,6 @@ class ObjectHistoryTest extends RTTestCase
 	private $saved_tabno;
 	private $had_pageno;
 	private $had_tabno;
-	private $had_full;
-	private $saved_full;
 
 	public static function setUpBeforeClass () : void
 	{
@@ -47,8 +45,6 @@ class ObjectHistoryTest extends RTTestCase
 		$this->had_tabno = isset ($tabno);
 		$this->saved_pageno = $this->had_pageno ? $pageno : NULL;
 		$this->saved_tabno = $this->had_tabno ? $tabno : NULL;
-		$this->had_full = array_key_exists ('full', $_REQUEST);
-		$this->saved_full = $this->had_full ? $_REQUEST['full'] : NULL;
 		$pageno = 'object';
 		$tabno = 'default';
 	}
@@ -64,35 +60,27 @@ class ObjectHistoryTest extends RTTestCase
 			$tabno = $this->saved_tabno;
 		else
 			unset ($tabno);
-		if ($this->had_full)
-			$_REQUEST['full'] = $this->saved_full;
-		else
-			unset ($_REQUEST['full']);
 	}
 
 	/**
 	 * @group small
 	 */
-	public function testShowsLatestRowsAndLink ()
+	public function testFoldsOlderRowsOnThePage ()
 	{
-		unset ($_REQUEST['full']);
 		$html = $this->captureHistory ();
-		$this->assertStringContainsString ('Display last 30 items from 31', $html);
-		$this->assertStringContainsString ('Show full history', $html);
-		$this->assertStringContainsString (self::$newest, $html);
-		$this->assertStringNotContainsString (self::$oldest, $html);
-	}
-
-	/**
-	 * @group small
-	 */
-	public function testFullRequestShowsEveryRow ()
-	{
-		$_REQUEST['full'] = '1';
-		$html = $this->captureHistory ();
+		$this->assertStringContainsString ('<summary>Show 27 more</summary>', $html);
+		$this->assertStringNotContainsString ('Display last 30 items from 31', $html);
 		$this->assertStringNotContainsString ('Show full history', $html);
-		$this->assertStringContainsString (self::$oldest, $html);
-		$this->assertStringContainsString (self::$newest, $html);
+		$details_end = strpos ($html, '</details>');
+		$this->assertNotFalse ($details_end);
+		$older_html = substr ($html, 0, $details_end);
+		$visible_html = substr ($html, $details_end);
+		$this->assertStringContainsString (self::$oldest, $older_html);
+		$this->assertStringContainsString ('hist-mid-26', $older_html);
+		$this->assertStringNotContainsString (self::$newest, $older_html);
+		$this->assertStringContainsString ('hist-mid-27', $visible_html);
+		$this->assertStringContainsString (self::$newest, $visible_html);
+		$this->assertStringNotContainsString (self::$oldest, $visible_html);
 	}
 
 	private function captureHistory ()
