@@ -24,3 +24,8 @@ debian/racktables/
 debian/racktables.debhelper.log
 debian/racktables.substvars
 debian/tmp/
+
+# agent worktrees and personal instructions
+.worktrees/
+AGENTS.local.md
+.opencode/
