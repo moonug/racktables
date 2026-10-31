@@ -807,9 +807,12 @@ function ios12ShortenIfName_real ($ifname)
 	$ifname = preg_replace ('@^FastEthernet(.+)$@', 'fa\\1', $ifname);
 	$ifname = preg_replace ('@^GigabitEthernet(.+)$@', 'gi\\1', $ifname);
 	$ifname = preg_replace ('@^TenGigabitEthernet(.+)$@', 'te\\1', $ifname);
+	$ifname = preg_replace ('@^TwentyFiveGigE(.+)$@', 'twe\\1', $ifname);
+	$ifname = preg_replace ('@^FortyGigabitEthernet(.+)$@', 'fo\\1', $ifname);
+	$ifname = preg_replace ('@^AppGigabitEthernet(.+)$@', 'ap\\1', $ifname);
 	$ifname = preg_replace ('@^port-channel(.+)$@i', 'po\\1', $ifname);
 	$ifname = strtolower ($ifname);
-	$ifname = preg_replace ('/^(fa|gi|te|po)\s+(\d.*)/', '$1$2', $ifname);
+	$ifname = preg_replace ('/^(fa|gi|te|twe|fo|ap|po)\s+(\d.*)/', '$1$2', $ifname);
 	return $ifname;
 }
 
@@ -874,6 +877,9 @@ function ios12ShortenIfName ($ifname)
 	$ifname = preg_replace ('@^FastEthernet(.+)$@', 'fa\\1', $ifname);
 	$ifname = preg_replace ('@^(?:GigabitEthernet|GE)\s*(.+)$@', 'gi\\1', $ifname);
 	$ifname = preg_replace ('@^TenGigabitEthernet(.+)$@', 'te\\1', $ifname);
+	$ifname = preg_replace ('@^TwentyFiveGigE(.+)$@', 'twe\\1', $ifname);
+	$ifname = preg_replace ('@^FortyGigabitEthernet(.+)$@', 'fo\\1', $ifname);
+	$ifname = preg_replace ('@^AppGigabitEthernet(.+)$@', 'ap\\1', $ifname);
 	$ifname = preg_replace ('@^port-channel(.+)$@i', 'po\\1', $ifname);
 	$ifname = preg_replace ('@^(?:XGigabitEthernet|XGE)(.+)$@', 'xg\\1', $ifname);
 	$ifname = preg_replace ('@^LongReachEthernet(.+)$@', 'lo\\1', $ifname);
@@ -883,6 +889,6 @@ function ios12ShortenIfName ($ifname)
 	$ifname = preg_replace ('@^Mg(?:mtEth)?(.*)$@', 'mg\\1', $ifname); // IOS XR4
 	$ifname = preg_replace ('@^BE(\d+)$@', 'bundle-ether\\1', $ifname); // IOS XR4
 	$ifname = strtolower ($ifname);
-	$ifname = preg_replace ('/^(e|fa|gi|te|po|xg|lo|ma)\s+(\d.*)/', '$1$2', $ifname);
+	$ifname = preg_replace ('/^(e|fa|gi|te|twe|fo|ap|po|xg|lo|ma)\s+(\d.*)/', '$1$2', $ifname);
 	return $ifname;
 }

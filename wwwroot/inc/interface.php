@@ -2446,11 +2446,37 @@ END;
 // History viewer for history-enabled simple dictionaries.
 function renderObjectHistory ($object_id)
 {
-	$result = usePreparedSelectBlade
-	(
-		'SELECT ctime, user_name, name, label, asset_no, has_problems, comment FROM ObjectHistory WHERE id=? ORDER BY ctime',
-		array ($object_id)
-	);
+	$max_rows = 30;
+	$link_to_full = '';
+	if (! isset ($_REQUEST['full']))
+	{
+		$total = usePreparedSelectBlade
+		(
+			'SELECT COUNT(*) FROM ObjectHistory WHERE id=?',
+			array ($object_id)
+		)->fetchColumn ();
+		$result = usePreparedSelectBlade
+		(
+			'SELECT ctime, user_name, name, label, asset_no, has_problems, comment FROM ObjectHistory WHERE id=? ORDER BY ctime DESC LIMIT ' . $max_rows,
+			array ($object_id)
+		);
+		$data = array_reverse ($result->fetchAll (PDO::FETCH_ASSOC));
+		if ($total > $max_rows)
+		{
+			$href = makeHref (makePageParams (array ('full' => '1')));
+			$link_to_full = "<p>Display last ${max_rows} items from ${total}. <a href='${href}'>Show full history</a></p>\n";
+		}
+	}
+	else
+	{
+		$result = usePreparedSelectBlade
+		(
+			'SELECT ctime, user_name, name, label, asset_no, has_problems, comment FROM ObjectHistory WHERE id=? ORDER BY ctime',
+			array ($object_id)
+		);
+		$data = $result->fetchAll (PDO::FETCH_ASSOC);
+	}
+	echo $link_to_full;
 	$columns = array
 	(
 		array ('th_text' => 'Change time', 'row_key' => 'ctime'),
@@ -2461,7 +2487,8 @@ function renderObjectHistory ($object_id)
 		array ('th_text' => 'Has problems?', 'row_key' => 'has_problems'),
 		array ('th_text' => 'Comment', 'row_key' => 'comment'),
 	);
-	renderTableViewer ($columns, $result->fetchAll (PDO::FETCH_ASSOC));
+	renderTableViewer ($columns, $data);
+	echo $link_to_full;
 }
 
 function renderRackspaceHistory ()

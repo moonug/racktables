@@ -199,6 +199,7 @@ function getConfigDefaults()
 		'SHOW_EXPLICIT_TAGS' => 'yes',
 		'SHOW_IMPLICIT_TAGS' => 'yes',
 		'SHOW_AUTOMATIC_TAGS' => 'no',
+		'PERMISSION_DENIED_SHOW_CONTEXT' => 'no',
 		'DEFAULT_OBJECT_TYPE' => '4',
 		'IPV4_AUTO_RELEASE' => '1',
 		'SHOW_LAST_TAB' => 'yes',
