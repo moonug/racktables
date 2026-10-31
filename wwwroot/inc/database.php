@@ -2889,10 +2889,10 @@ function getIPv4AddressSearchResult ($terms)
 	$qparams = array();
 	foreach (explode (' ', $terms) as $term)
 	{
-		$query .= $or . "name like ? or comment like ?";
+		$query .= $or . searchLikeExpr ('name') . ' or ' . searchLikeExpr ('comment');
 		$or = ' or ';
-		$qparams[] = "%${term}%";
-		$qparams[] = "%${term}%";
+		$qparams[] = searchLikePattern ($term);
+		$qparams[] = searchLikePattern ($term);
 	}
 	$result = usePreparedSelectBlade ($query, $qparams);
 	$ret = array();
@@ -2912,10 +2912,10 @@ function getIPv6AddressSearchResult ($terms)
 	$qparams = array();
 	foreach (explode (' ', $terms) as $term)
 	{
-		$query .= $or . "name like ? or comment like ?";
+		$query .= $or . searchLikeExpr ('name') . ' or ' . searchLikeExpr ('comment');
 		$or = ' or ';
-		$qparams[] = "%${term}%";
-		$qparams[] = "%${term}%";
+		$qparams[] = searchLikePattern ($term);
+		$qparams[] = searchLikePattern ($term);
 	}
 	$result = usePreparedSelectBlade ($query, $qparams);
 	return reindexById ($result->fetchAll (PDO::FETCH_ASSOC), 'ip');
@@ -3144,6 +3144,17 @@ function getVLANSearchResult ($terms)
 	return $ret;
 }
 
+// ESCAPE '!' does not depend on NO_BACKSLASH_ESCAPES. addcslashes() can only prefix a backslash.
+function searchLikePattern ($term)
+{
+	return '%' . strtr ($term, array ('!' => '!!', '%' => '!%', '_' => '!_')) . '%';
+}
+
+function searchLikeExpr ($expr)
+{
+	return $expr . " LIKE ? ESCAPE '!'";
+}
+
 function getSearchResultByField ($tablename, $retcolumns, $scancolumn, $terms, $ordercolumn = '', $exactness = 0)
 {
 	$query = 'SELECT ' . implode (', ', $retcolumns) . " FROM {$tablename} WHERE ";
@@ -3167,8 +3178,8 @@ function getSearchResultByField ($tablename, $retcolumns, $scancolumn, $terms, $
 			$qparams[] = $term;
 			break;
 		default:
-			$query .= $pfx . "${scancolumn} LIKE ?";
-			$qparams[] = "%${term}%";
+			$query .= $pfx . searchLikeExpr ($scancolumn);
+			$qparams[] = searchLikePattern ($term);
 			break;
 		}
 		$pfx = ' OR ';
@@ -3232,9 +3243,9 @@ function getStickerSearchResults ($tablename, $what)
 		'INNER JOIN Attribute A ON AV.attr_id = A.id ' .
 		'LEFT JOIN AttributeMap AM ON A.type = "dict" AND AV.object_tid = AM.objtype_id AND AV.attr_id = AM.attr_id ' .
 		'LEFT JOIN Dictionary D ON AM.chapter_id = D.chapter_id AND AV.uint_value = D.dict_key ' .
-		'WHERE string_value LIKE ? ' .
-		'OR (A.type = "dict" AND dict_value LIKE ?) ORDER BY object_id',
-		array ("%${what}%", "%${what}%")
+		'WHERE ' . searchLikeExpr ('string_value') . ' ' .
+		'OR (A.type = "dict" AND ' . searchLikeExpr ('dict_value') . ') ORDER BY object_id',
+		array (searchLikePattern ($what), searchLikePattern ($what))
 	);
 	$ret = array ();
 	while ($row = $result->fetch (PDO::FETCH_ASSOC))
@@ -3361,8 +3372,8 @@ function searchCableIDs ($what)
 	(
 		'SELECT object_id, cable ' .
 		'FROM Link INNER JOIN Port ON porta = Port.id OR portb = Port.id ' .
-		'WHERE cable LIKE ? ORDER BY object_id',
-		array ("%${what}%")
+		'WHERE ' . searchLikeExpr ('cable') . ' ORDER BY object_id',
+		array (searchLikePattern ($what))
 	);
 	while ($row = $result->fetch (PDO::FETCH_ASSOC))
 	{
