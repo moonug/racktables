@@ -258,6 +258,22 @@ function add_link ($a_object, $a_port, $b_object, $b_port)
 		sprintf ('C-%04d', $cable_seq));
 }
 
+# Put a device into the next free units of a rack. Servers use units 37-40,
+# the access switch 41 and the patch panel 42, so network gear grows down
+# from unit 36; the row UPS keeps units 1-2.
+function mount_device (&$cursor, $rack_id, $units, $object_id)
+{
+	global $rack_space;
+	if (! isset ($cursor[$rack_id]))
+		$cursor[$rack_id] = 36;
+	$bottom = $cursor[$rack_id] - $units + 1;
+	if ($bottom < 3)
+		throw new RuntimeException ("rack ${rack_id} has no room for object ${object_id}");
+	for ($unit = $cursor[$rack_id]; $unit >= $bottom; $unit--)
+		$rack_space[] = array ($rack_id, $unit, 'front', $object_id);
+	$cursor[$rack_id] = $bottom - 1;
+}
+
 function ip4_int ($dotted)
 {
 	return ip2long ($dotted);
@@ -374,10 +390,23 @@ foreach ($sites as $index => $site)
 		}
 	}
 
-	$first_rack = $racks[1];
 	$first_row_letter = chr (ord ('A'));
 
-	# Site-level gear is zero-U mounted to the first rack of row A.
+	# Site-level gear is mounted like any other 1U/2U device. The racks take
+	# it in turn so one rack does not hold the whole core.
+	$net_cursor = array ();
+	$gear_racks = array_values ($racks);
+	$gear_index = 0;
+	$place = function ($units, $object_id) use (&$net_cursor, $gear_racks, &$gear_index)
+	{
+		$rack_id = $gear_racks[$gear_index++ % count ($gear_racks)];
+		mount_device ($net_cursor, $rack_id, $units, $object_id);
+	};
+	$place_in = function ($rack_id, $units, $object_id) use (&$net_cursor)
+	{
+		mount_device ($net_cursor, $rack_id, $units, $object_id);
+	};
+
 	$routers = array ();
 	for ($i = 1; $i <= 2; $i++)
 	{
@@ -397,7 +426,7 @@ foreach ($sites as $index => $site)
 			add_port ($id, 'Te0/2/' . $p, '100g');
 		add_port ($id, 'lo0', 'virtual');
 		add_port ($id, 'mgmt0', '1g');
-		$entity_links[] = array ('rack', $first_rack, 'object', $id);
+		$place (2, $id);
 	}
 
 	$cores = array ();
@@ -419,7 +448,7 @@ foreach ($sites as $index => $site)
 		foreach ($site_vlans as $vlan)
 			add_port ($id, 'Vlan' . $vlan, 'virtual');
 		add_port ($id, 'mgmt0', '1g');
-		$entity_links[] = array ('rack', $first_rack, 'object', $id);
+		$place (2, $id);
 	}
 
 	$dists = array ();
@@ -438,7 +467,7 @@ foreach ($sites as $index => $site)
 		for ($p = 1; $p <= 24; $p++)
 			add_port ($id, 'Fo1/0/' . $p, '40g');
 		add_port ($id, 'mgmt0', '1g');
-		$entity_links[] = array ('rack', $first_rack, 'object', $id);
+		$place (1, $id);
 	}
 
 	$fws = array ();
@@ -456,7 +485,7 @@ foreach ($sites as $index => $site)
 		for ($p = 1; $p <= 4; $p++)
 			add_port ($id, 'Gi1/0/' . $p, '1g');
 		add_port ($id, 'mgmt0', '1g');
-		$entity_links[] = array ('rack', $first_rack, 'object', $id);
+		$place (1, $id);
 	}
 
 	$lbs = array ();
@@ -473,7 +502,7 @@ foreach ($sites as $index => $site)
 		add_port ($id, 'eth0', '25g');
 		add_port ($id, 'eth1', '25g');
 		add_port ($id, 'ipmi0', '1g');
-		$entity_links[] = array ('rack', $first_rack, 'object', $id);
+		$place (1, $id);
 	}
 
 	$consoles = array ();
@@ -490,7 +519,7 @@ foreach ($sites as $index => $site)
 			add_port ($id, 'serial' . $p, 'serial');
 		add_port ($id, 'eth0', '1g');
 		add_port ($id, 'mgmt0', '1g');
-		$entity_links[] = array ('rack', $first_rack, 'object', $id);
+		$place (1, $id);
 	}
 
 	$sans = array ();
@@ -505,7 +534,7 @@ foreach ($sites as $index => $site)
 		for ($p = 0; $p < 4; $p++)
 			add_port ($id, 'eth' . $p, '25g');
 		add_port ($id, 'ipmi0', '1g');
-		$entity_links[] = array ('rack', $first_rack, 'object', $id);
+		$place (2, $id);
 	}
 
 	# Rows: one OOB switch and one row UPS, plus the access switch and the
@@ -527,7 +556,7 @@ foreach ($sites as $index => $site)
 			add_port ($oob_id, 'Gi1/0/' . $p, '1g');
 		add_port ($oob_id, 'Te1/1/1', '40g');
 		add_port ($oob_id, 'mgmt0', '1g');
-		$entity_links[] = array ('rack', $first_rack, 'object', $oob_id);
+		$place_in ($racks[$row_racks[$letter][0]], 1, $oob_id);
 
 		$ups_id = add_object ($site, sprintf ('%s-ups-%s', $site['prefix'], strtolower ($letter)),
 			sprintf ('%s-UPS-%s', strtoupper ($site['prefix']), $letter), OT_UPS,
@@ -604,7 +633,7 @@ foreach ($sites as $index => $site)
 		'routers' => $routers, 'cores' => $cores, 'dists' => $dists, 'fws' => $fws,
 		'lbs' => $lbs, 'consoles' => $consoles, 'sans' => $sans, 'oob' => $oob,
 		'access' => $access, 'servers' => $servers, 'switches' => $switches,
-		'first_rack' => $first_rack, 'first_row' => $first_row_letter,
+		'first_row' => $first_row_letter,
 	);
 }
 
@@ -613,6 +642,7 @@ foreach ($sites as $index => $site)
 # link are known.
 
 $server_ip6 = array ();
+$infra_links = array ();   # routed links that get a point-to-point /126
 
 $dist_port_seq = array ();
 $dist_port = function ($dist_id) use (&$dist_port_seq)
@@ -633,12 +663,19 @@ foreach ($site_devices as $slug => &$site)
 
 	# Routers to each other and to the core.
 	if (count ($routers) > 1)
+	{
 		add_link ($routers[0], 'Hu0/1/0', $routers[1], 'Hu0/1/0');
+		$infra_links[$slug][] = array ($routers[0], 'Hu0/1/0', $routers[1], 'Hu0/1/0');
+	}
 	foreach ($cores as $ci => $core)
 	{
 		add_link ($routers[0], 'Hu0/1/' . (1 + $ci), $core, 'Hu1/1/0');
+		$infra_links[$slug][] = array ($routers[0], 'Hu0/1/' . (1 + $ci), $core, 'Hu1/1/0');
 		if (count ($routers) > 1)
+		{
 			add_link ($routers[1], 'Hu0/1/' . (1 + $ci), $core, 'Hu1/1/1');
+			$infra_links[$slug][] = array ($routers[1], 'Hu0/1/' . (1 + $ci), $core, 'Hu1/1/1');
+		}
 	}
 
 	# Core pair.
@@ -657,8 +694,12 @@ foreach ($site_devices as $slug => &$site)
 	foreach ($site['fws'] as $fi => $fw)
 	{
 		add_link ($fw, 'Te1/1/0', $cores[0], 'Te1/2/' . (2 * $fi));
+		$infra_links[$slug][] = array ($fw, 'Te1/1/0', $cores[0], 'Te1/2/' . (2 * $fi));
 		if ($nc > 1)
+		{
 			add_link ($fw, 'Te1/1/1', $cores[1], 'Te1/2/' . (2 * $fi));
+			$infra_links[$slug][] = array ($fw, 'Te1/1/1', $cores[1], 'Te1/2/' . (2 * $fi));
+		}
 	}
 	foreach ($site['consoles'] as $ci => $console)
 		add_link ($console, 'eth0', $site['oob'][$site['first_row']], 'Gi1/0/' . (23 + $ci));
@@ -971,6 +1012,31 @@ foreach ($site_devices as $slug => &$site)
 			}
 			$host++;
 		}
+	}
+
+	# Load balancer data interfaces sit in the production VLAN, storage
+	# arrays in the storage VLAN.
+	foreach ($site['lbs'] as $lb)
+		foreach (array ('eth0', 'eth1') as $if)
+		{
+			$host_id = $host++;
+			add_alloc6 ($lb, sprintf ('fd00:%04x:00c8::%x', $sid, $host_id), $if);
+			if ($slug == 'centauri')
+				add_alloc4 ($lb, sprintf ('172.16.%d.%d', $legacy_vlan[200], $host_id), $if);
+		}
+	foreach ($site['sans'] as $san)
+		for ($p = 0; $p < 4; $p++)
+			add_alloc6 ($san, sprintf ('fd00:%04x:012c::%x', $sid, $host++), 'eth' . $p);
+
+	# Routed infra links: one /126 per link, inside the site aggregate.
+	$seq = 0;
+	foreach ($infra_links[$slug] as $link)
+	{
+		$seq++;
+		add_network6 (sprintf ('fd00:%04x:fffe:%04x::', $sid, $seq), 126,
+			sprintf ('%s infra link %d', $slug, $seq));
+		add_alloc6 ($link[0], sprintf ('fd00:%04x:fffe:%04x::1', $sid, $seq), $link[1], 'point2point');
+		add_alloc6 ($link[2], sprintf ('fd00:%04x:fffe:%04x::2', $sid, $seq), $link[3], 'point2point');
 	}
 }
 unset ($site);
