@@ -1520,7 +1520,8 @@ function saveMyPreferences ()
 	{
 		assertStringArg ("${i}_varvalue", TRUE);
 		$varname = genericAssertion ("${i}_varname", 'string');
-		$varvalue = $_REQUEST["${i}_varvalue"];
+		// $_REQUEST is HTML-escaped by transformRequestData(); store the typed text.
+		$varvalue = htmlspecialchars_decode ($_REQUEST["${i}_varvalue"], ENT_QUOTES);
 
 		// If form value = value in DB, don't bother updating DB
 		if (!isConfigVarChanged($varname, $varvalue))

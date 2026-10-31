@@ -2237,6 +2237,7 @@ WHERE O.objtype_id = 1562";
 ('SHOW_EXPLICIT_TAGS','yes','string','no','no','yes','Show explicit tags'),
 ('SHOW_IMPLICIT_TAGS','yes','string','no','no','yes','Show implicit tags'),
 ('SHOW_AUTOMATIC_TAGS','no','string','no','no','yes','Show automatic tags'),
+('PERMISSION_DENIED_SHOW_CONTEXT','no','string','no','no','no','Show denial details (yes exposes security context)'),
 ('IPV4_AUTO_RELEASE','1','uint','no','no','yes','Auto-release IPv4 addresses on allocation'),
 ('SHOW_LAST_TAB','yes','string','yes','no','yes','Remember last tab shown for each page'),
 ('EXT_IPV4_VIEW','yes','string','no','no','yes','Extended IPv4 view'),

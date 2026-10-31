@@ -227,6 +227,7 @@ function getDBUpgradePath ($v1, $v2)
 		'0.21.5',
 		'0.22.0',
 		'0.22.1',
+		'0.22.2',
 	);
 	if (! in_array ($v1, $versionhistory) || ! in_array ($v2, $versionhistory))
 		return NULL;
@@ -1397,6 +1398,10 @@ INSERT INTO `Config` (varname, varvalue, vartype, emptyok, is_hidden, is_userdef
 			// installs from the 0.22.0 dump (or upstream-based installs) lack it.
 			$query[] = "INSERT IGNORE INTO `Config` (varname, varvalue, vartype, emptyok, is_hidden, is_userdefined, description) VALUES ('8021Q_DELETE_ON_PULL_LISTSRC', 'false', 'string', 'yes', 'no', 'no', 'List source: switch devices which are allowed to lose switchports on 802.1Q pull')";
 			$query[] = "UPDATE Config SET varvalue = '0.22.1' WHERE varname = 'DB_VERSION'";
+			break;
+		case '0.22.2':
+			$query[] = "INSERT IGNORE INTO `Config` (varname, varvalue, vartype, emptyok, is_hidden, is_userdefined, description) VALUES ('PERMISSION_DENIED_SHOW_CONTEXT', 'no', 'string', 'no', 'no', 'no', 'Show denial details (yes exposes security context)')";
+			$query[] = "UPDATE Config SET varvalue = '0.22.2' WHERE varname = 'DB_VERSION'";
 			break;
 		case 'dictionary':
 			$query = reloadDictionary();

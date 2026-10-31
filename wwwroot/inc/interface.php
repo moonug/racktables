@@ -2443,6 +2443,21 @@ END;
 	return TRUE;
 }
 
+// Fold only when at least three rows would be hidden, same rule as a child
+// list. The latest 30 rows stay visible; older rows sit above them.
+function objectHistorySpoilerSplit ($rows)
+{
+	$visible_rows = 30;
+	$min_rows = $visible_rows + 3;
+	if (count ($rows) < $min_rows)
+		return array ($rows, array ());
+	return array
+	(
+		array_slice ($rows, -1 * $visible_rows),
+		array_slice ($rows, 0, -1 * $visible_rows),
+	);
+}
+
 // History viewer for history-enabled simple dictionaries.
 function renderObjectHistory ($object_id)
 {
@@ -2451,6 +2466,7 @@ function renderObjectHistory ($object_id)
 		'SELECT ctime, user_name, name, label, asset_no, has_problems, comment FROM ObjectHistory WHERE id=? ORDER BY ctime',
 		array ($object_id)
 	);
+	list ($visible, $older) = objectHistorySpoilerSplit ($result->fetchAll (PDO::FETCH_ASSOC));
 	$columns = array
 	(
 		array ('th_text' => 'Change time', 'row_key' => 'ctime'),
@@ -2461,7 +2477,13 @@ function renderObjectHistory ($object_id)
 		array ('th_text' => 'Has problems?', 'row_key' => 'has_problems'),
 		array ('th_text' => 'Comment', 'row_key' => 'comment'),
 	);
-	renderTableViewer ($columns, $result->fetchAll (PDO::FETCH_ASSOC));
+	if ($older)
+	{
+		echo '<details><summary>Show ' . count ($older) . ' more</summary>';
+		renderTableViewer ($columns, $older);
+		echo '</details>';
+	}
+	renderTableViewer ($columns, $visible);
 }
 
 function renderRackspaceHistory ()
