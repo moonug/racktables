@@ -3626,6 +3626,58 @@ function renderNATv4ForObject ($object_id)
 	echo "</table><br><br>";
 }
 
+function renderObjectAttributeReport ()
+{
+	global $pageno, $tabno, $nextorder;
+	$cellfilter = getCellFilter ();
+	$objects = array ();
+	$objects_count = getEntitiesCount ('object');
+
+	echo "<table border=0 class=objectview>\n";
+	echo "<tr><td class=pcleft>";
+	if ($objects_count == 0)
+		echo '<h2>No objects exist</h2>';
+	elseif (! ($cellfilter['is_empty'] && renderEmptyResults ($cellfilter, 'objects', $objects_count)))
+	{
+		$objects = applyCellFilter ('object', $cellfilter);
+		if (! renderEmptyResults ($cellfilter, 'objects', count ($objects)))
+		{
+			$report = getObjectAttributeReport ($objects);
+			startPortlet ('Objects (' . count ($objects) . ')');
+			echo '<br><br><table border=0 cellpadding=5 cellspacing=0 align=center class=cooltable>';
+			echo '<tr><th>Common name</th>';
+			foreach ($report['display'] as $attr)
+				echo '<th>' . htmlspecialchars ($attr['name']) . '</th>';
+			echo '</tr>';
+			$order = 'odd';
+			foreach ($objects as $object)
+			{
+				$context = getContext ();
+				fixContext ($object);
+				echo "<tr class='row_${order} tdleft' valign=top><td>" . mkA ('<strong>' . $object['dname'] . '</strong>', 'object', $object['id']);
+				if (count ($object['etags']))
+					echo '<br><small>' . serializeTags ($object['etags'], makeHref (array ('page' => $pageno, 'tab' => $tabno)) . '&') . '</small>';
+				echo '</td>';
+				foreach ($report['display'] as $attr_id => $attr)
+				{
+					echo '<td>';
+					if (isset ($report['attrs'][$object['id']][$attr_id]) && strlen ((string) $report['attrs'][$object['id']][$attr_id]['value']))
+						echo formatAttributeValue ($report['attrs'][$object['id']][$attr_id], $object['objtype_id']);
+					echo '</td>';
+				}
+				echo '</tr>';
+				$order = $nextorder[$order];
+				restoreContext ($context);
+			}
+			echo '</table>';
+			finishPortlet ();
+		}
+	}
+	echo '</td><td class=pcright width="25%">';
+	renderCellFilterPortlet ($cellfilter, 'object', $objects);
+	echo "</td></tr></table>\n";
+}
+
 function renderAddMultipleObjectsForm ()
 {
 	$typelist = withoutLocationTypes (readChapter (CHAP_OBJTYPE, 'o'));
