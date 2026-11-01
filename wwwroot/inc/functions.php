@@ -5234,28 +5234,48 @@ function searchResultVisible ($page, $tab, $entity)
 	return isolatedPermission ($page, $tab, $entity);
 }
 
+// The redirect and the permission check must name the same page. A list of
+// several addresses still links to the network, which is a different page.
+function searchAddressRedirectTarget ($record, $address)
+{
+	if (count ($address['allocs']) == 1 && isIPAddressEmpty ($address, array ('allocs')))
+		return array (
+			'page' => 'object',
+			'id' => $address['allocs'][0]['object_id'],
+		);
+	if
+	(
+		count ($address['vsglist'] + $address['vslist']) &&
+		isIPAddressEmpty ($address, array ('vslist', 'vsglist'))
+	)
+		return array (
+			'page' => 'ipaddress',
+			'id' => ip_format ($record['ip']),
+		);
+	$net_realm = strlen ($record['ip']) == 16 ? 'ipv6net' : 'ipv4net';
+	$net_id = isset ($record['net_id']) ? $record['net_id'] : getIPAddressNetworkId ($record['ip']);
+	if ($net_id === NULL)
+		return array (
+			'page' => 'ipaddress',
+			'id' => NULL,
+		);
+	return array (
+		'page' => $net_realm,
+		'id' => $net_id,
+	);
+}
+
 // $entity_for ($realm, $record) resolves the cell that carries the hit's tags.
-// Address hits ask for realm "network". An unknown realm is left unchanged.
-function filterSearchSummary ($summary, $entity_for, $visible)
+// $address_for ($ip) loads the opened address; the default reads it from the database.
+function filterSearchSummary ($summary, $entity_for, $visible, $address_for = 'getIPAddress')
 {
 	global $pageno_by_etype;
 	$address_realms = array ('ipv4addressbydq', 'ipv6addressbydq', 'ipv4addressbydescr', 'ipv6addressbydescr');
 	foreach ($summary as $realm => $records)
 	{
-		if (! is_array ($records))
+		if (! is_array ($records) || in_array ($realm, $address_realms, TRUE))
 			continue;
-		if (in_array ($realm, $address_realms, TRUE))
-		{
-			foreach ($records as $key => $record)
-			{
-				// The result link opens the network when one exists, and the address page otherwise.
-				$net = call_user_func ($entity_for, 'network', $record);
-				$page = $net === NULL ? 'ipaddress' : $net['realm'];
-				if (! call_user_func ($visible, $page, 'default', $net))
-					unset ($summary[$realm][$key]);
-			}
-		}
-		elseif ($realm === 'vlan')
+		if ($realm === 'vlan')
 		{
 			foreach ($records as $key => $record)
 			{
@@ -5283,7 +5303,77 @@ function filterSearchSummary ($summary, $entity_for, $visible)
 			}
 		}
 	}
+	$other_hits = searchRealmHitCount ($summary, $address_realms, FALSE);
+	$address_hits = searchRealmHitCount ($summary, $address_realms, TRUE);
+	// Other hits can vanish above. A sole survivor is opened by the redirect, not the list link.
+	if ($other_hits == 0 && $address_hits == 1)
+		searchDropDeniedAddressRedirect ($summary, $address_realms, $entity_for, $visible, $address_for);
+	else
+	{
+		foreach ($summary as $realm => $records)
+		{
+			if (! is_array ($records) || ! in_array ($realm, $address_realms, TRUE))
+				continue;
+			foreach ($records as $key => $record)
+			{
+				// The result link opens the network when one exists, and the address page otherwise.
+				$net = call_user_func ($entity_for, 'network', $record);
+				$page = $net === NULL ? 'ipaddress' : $net['realm'];
+				if (! call_user_func ($visible, $page, 'default', $net))
+					unset ($summary[$realm][$key]);
+			}
+		}
+		// Two addresses can shrink to one, and that hit is then opened by the redirect.
+		if ($other_hits == 0 && searchRealmHitCount ($summary, $address_realms, TRUE) == 1)
+			searchDropDeniedAddressRedirect ($summary, $address_realms, $entity_for, $visible, $address_for);
+	}
 	return array_filter ($summary, 'count');
+}
+
+function searchRealmHitCount ($summary, $address_realms, $addresses)
+{
+	$count = 0;
+	foreach ($summary as $realm => $records)
+	{
+		if (! is_array ($records))
+			continue;
+		$is_address = in_array ($realm, $address_realms, TRUE);
+		if ($is_address === $addresses)
+			$count += count ($records);
+	}
+	return $count;
+}
+
+function searchDropDeniedAddressRedirect (&$summary, $address_realms, $entity_for, $visible, $address_for)
+{
+	foreach ($address_realms as $realm)
+	{
+		if (empty ($summary[$realm]) || ! is_array ($summary[$realm]))
+			continue;
+		foreach ($summary[$realm] as $key => $record)
+		{
+			$address = call_user_func ($address_for, $record['ip']);
+			if (! searchLoneAddressVisible ($record, $address, $entity_for, $visible))
+				unset ($summary[$realm][$key]);
+		}
+	}
+}
+
+function searchLoneAddressVisible ($record, $address, $entity_for, $visible)
+{
+	$target = searchAddressRedirectTarget ($record, $address);
+	if ($target['page'] === 'object')
+	{
+		$entity = call_user_func ($entity_for, 'object', array ('id' => $target['id']));
+		return $entity !== NULL && call_user_func ($visible, 'object', 'default', $entity);
+	}
+	if ($target['page'] === 'ipaddress')
+	{
+		$net = call_user_func ($entity_for, 'network', $record);
+		return call_user_func ($visible, 'ipaddress', 'default', $net);
+	}
+	$entity = call_user_func ($entity_for, $target['page'], array ('id' => $target['id']));
+	return $entity !== NULL && call_user_func ($visible, $target['page'], 'default', $entity);
 }
 
 // returns URL to redirect to, or NULL if $result_type is unknown
@@ -5298,24 +5388,12 @@ function buildSearchRedirectURL ($result_type, $record)
 		case 'ipv6addressbydq':
 		case 'ipv4addressbydescr':
 		case 'ipv6addressbydescr':
-			$address = getIPAddress ($record['ip']);
-			if (count ($address['allocs']) == 1 && isIPAddressEmpty ($address, array ('allocs')))
-			{
-				$next_page = 'object';
-				$id = $address['allocs'][0]['object_id'];
+			$target = searchAddressRedirectTarget ($record, getIPAddress ($record['ip']));
+			$next_page = $target['page'];
+			$id = $target['id'];
+			// The address page is the destination itself. Other targets highlight the address on arrival.
+			if ($next_page != 'ipaddress')
 				$params['hl_ip'] = ip_format ($record['ip']);
-			}
-			elseif (count ($address['vsglist'] + $address['vslist']) && isIPAddressEmpty ($address, array ('vslist', 'vsglist')))
-			{
-				$next_page = 'ipaddress';
-				$id = ip_format ($record['ip']);
-			}
-			else
-			{
-				$next_page = strlen ($record['ip']) == 16 ? 'ipv6net' : 'ipv4net';
-				$id = isset ($record['net_id']) ? $record['net_id'] : getIPAddressNetworkId ($record['ip']);
-				$params['hl_ip'] = ip_format ($record['ip']);
-			}
 			break;
 		case 'vlan':
 			$next_page = 'vlan';
