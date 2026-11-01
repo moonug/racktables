@@ -3626,6 +3626,41 @@ function renderNATv4ForObject ($object_id)
 	echo "</table><br><br>";
 }
 
+function renderBulkLinkForm ()
+{
+	startSession ();
+	$state = isset ($_SESSION['bulk-linker-state']) ? $_SESSION['bulk-linker-state'] : NULL;
+	unset ($_SESSION['bulk-linker-state']);
+	session_commit ();
+
+	echo <<<END
+<pre>
+Link ports in bulk. One line per cable:
+  objectA portA objectB portB [cable]
+  objectA portA - -
+  objectA portA objectB *portB
+  objectA !portA objectB !portB
+
+A dash instead of objectB and portB unlinks portA.
+An asterisk before a port name creates the port with the type of the other end.
+An exclamation mark unlinks the port if it is already linked.
+Port names are matched with the device breed abbreviations.
+</pre>
+END;
+	printOpFormIntro ('link');
+	$class = $state === NULL ? '' : ' class="validation-error"';
+	echo "<textarea cols=80 rows=20 name=in${class}>";
+	if ($state !== NULL)
+		echo htmlspecialchars ($state['text'], ENT_NOQUOTES);
+	echo '</textarea><p><input type=submit value="Link ports"></form>';
+	if ($state === NULL)
+		return;
+	echo '<ul class="validation-error">';
+	foreach ($state['errors'] as $error)
+		echo '<li>' . htmlspecialchars ($error, ENT_NOQUOTES) . '</li>';
+	echo '</ul>';
+}
+
 function renderAddMultipleObjectsForm ()
 {
 	$typelist = withoutLocationTypes (readChapter (CHAP_OBJTYPE, 'o'));
