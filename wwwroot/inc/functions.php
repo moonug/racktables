@@ -1735,6 +1735,20 @@ function tagChainCmp ($chain1, $chain2)
 	return FALSE;
 }
 
+// RackCode refers to tags by name, so renaming a tag that is in use (or has
+// a used descendant) would silently change the permissions that mention it.
+function assertTagRenameAllowed ($tag_id, $tag_name)
+{
+	$usage = getTagUsage (TRUE);
+	if (! isset ($usage[$tag_id]) || $usage[$tag_id]['tag'] === $tag_name)
+		return;
+	if ($usage[$tag_id]['refcnt']['total'] > 0)
+		throw new InvalidRequestArgException ('tag_name', $tag_name, 'Used tags cannot be renamed');
+	foreach (getTagDescendents ($tag_id) as $descendant_id)
+		if (isset ($usage[$descendant_id]) && $usage[$descendant_id]['refcnt']['total'] > 0)
+			throw new InvalidRequestArgException ('tag_name', $tag_name, 'Tags with used descendants cannot be renamed');
+}
+
 // returns an array of tag ids that have $tagid as its parent (all levels)
 function getTagDescendents ($tagid)
 {
