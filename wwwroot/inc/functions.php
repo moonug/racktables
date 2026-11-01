@@ -5716,6 +5716,150 @@ function getPortinfoByName (&$object, $portname, $strict_mode = TRUE)
 	return $ret;
 }
 
+// Parse one line of the bulk port linker form.
+function parseBulkLinkLine ($line)
+{
+	$ret = array ('a' => NULL, 'b' => NULL, 'cable' => NULL);
+	$fields = preg_split ('/\s+/', trim ($line));
+	foreach (array ('a', 'b') as $side)
+	{
+		if (! count ($fields))
+			throw new InvalidArgumentException ('not enough fields');
+		$object = array_shift ($fields);
+		if ($object === '-')
+		{
+			// The documented "obj port - -" form has a placeholder for the
+			// missing port name.
+			if (count ($fields) == 1 && $fields[0] === '-')
+				array_shift ($fields);
+			continue;
+		}
+		if (! count ($fields))
+			throw new InvalidArgumentException ('port name is missing for ' . $object);
+		$token = array_shift ($fields);
+		if (! preg_match ('/^([*!]*)(.+)$/', $token, $matches))
+			throw new InvalidArgumentException ('invalid port name');
+		$ret[$side] = array (
+			'name' => $object,
+			'port' => $matches[2],
+			'create' => strpos ($matches[1], '*') !== FALSE,
+			'unlink' => strpos ($matches[1], '!') !== FALSE,
+		);
+	}
+	if (count ($fields))
+		$ret['cable'] = array_shift ($fields);
+	if (count ($fields))
+		throw new InvalidArgumentException ('too many fields');
+	if ($ret['a'] === NULL && $ret['b'] === NULL)
+		throw new InvalidArgumentException ('at least one side must be present');
+	return $ret;
+}
+
+function getBulkLinkObject ($name)
+{
+	$result = usePreparedSelectBlade ('SELECT id FROM RackObject WHERE name = ?', array ($name));
+	$ids = $result->fetchAll (PDO::FETCH_COLUMN, 0);
+	if (! count ($ids))
+		throw new InvalidArgumentException ("no object named '${name}'");
+	if (count ($ids) > 1)
+		throw new InvalidArgumentException ("object name '${name}' is ambiguous");
+	return spotEntity ('object', $ids[0]);
+}
+
+// Find a port by its full or shortened name, preferring an unlinked one.
+function findBulkLinkPort ($object, $name)
+{
+	$ports = getObjectPortsAndLinks ($object['id']);
+	$breed = detectDeviceBreed ($object['id']);
+	$short = shortenIfName ($name, $breed);
+	$seen = NULL;
+	foreach ($ports as $port)
+		if (shortenIfName ($port['name'], $breed) == $short)
+		{
+			$seen = $port;
+			if (! $port['linked'])
+				return $port;
+		}
+	return $seen;
+}
+
+function commitBulkLinks ($text)
+{
+	$result = array ('linked' => 0, 'unlinked' => 0, 'already' => 0, 'failed' => array ());
+	$lineno = 0;
+	foreach (explode ("\n", $text) as $line)
+	{
+		$lineno++;
+		$line = trim ($line);
+		if ($line === '')
+			continue;
+		try
+		{
+			$data = parseBulkLinkLine ($line);
+			$object_a = $data['a'] === NULL ? NULL : getBulkLinkObject ($data['a']['name']);
+			$object_b = $data['b'] === NULL ? NULL : getBulkLinkObject ($data['b']['name']);
+			$port_a = $object_a === NULL ? NULL : findBulkLinkPort ($object_a, $data['a']['port']);
+			$port_b = $object_b === NULL ? NULL : findBulkLinkPort ($object_b, $data['b']['port']);
+
+			// A port marked with '*' is created, but only when the other
+			// side exists and can supply the type.
+			if ($port_a === NULL && isset ($data['a']) && $data['a']['create'])
+			{
+				if ($port_b === NULL)
+					throw new InvalidArgumentException ('cannot create a port without a neighbour port');
+				$port_a = createBulkLinkPort ($object_a, $data['a']['port'], $port_b);
+			}
+			if ($port_b === NULL && isset ($data['b']) && $data['b']['create'])
+			{
+				if ($port_a === NULL)
+					throw new InvalidArgumentException ('cannot create a port without a neighbour port');
+				$port_b = createBulkLinkPort ($object_b, $data['b']['port'], $port_a);
+			}
+			if ($object_a !== NULL && $port_a === NULL)
+				throw new InvalidArgumentException ("no port named '{$data['a']['port']}' on {$data['a']['name']}");
+			if ($object_b !== NULL && $port_b === NULL)
+				throw new InvalidArgumentException ("no port named '{$data['b']['port']}' on {$data['b']['name']}");
+
+			if ($port_a === NULL || $port_b === NULL)
+			{
+				$port = $port_a === NULL ? $port_b : $port_a;
+				$result['unlinked'] += commitUnlinkPort ($port['id']);
+				continue;
+			}
+			if ($port_a['id'] == $port_b['id'])
+				throw new InvalidArgumentException ('cannot link a port to itself');
+			if ($port_a['linked'] && $port_a['remote_id'] == $port_b['id'])
+			{
+				$result['already']++;
+				continue;
+			}
+			foreach (array ('a' => $port_a, 'b' => $port_b) as $side => $port)
+				if ($port['linked'])
+				{
+					if (! $data[$side]['unlink'])
+						throw new InvalidArgumentException ('port ' . formatPort ($port) . ' is already linked');
+					$result['unlinked'] += commitUnlinkPort ($port['id']);
+				}
+			if (! arePortsCompatible ($port_a, $port_b))
+				throw new InvalidArgumentException ('port types are not compatible: ' .
+					$port_a['oif_name'] . ' and ' . $port_b['oif_name']);
+			linkPorts ($port_a['id'], $port_b['id'], $data['cable']);
+			$result['linked']++;
+		}
+		catch (Exception $e)
+		{
+			$result['failed'][] = array ('line' => $lineno, 'text' => $line, 'error' => $e->getMessage ());
+		}
+	}
+	return $result;
+}
+
+function createBulkLinkPort ($object, $name, $source_port)
+{
+	$port_id = commitAddPort ($object['id'], $name, "{$source_port['iif_id']}-{$source_port['oif_id']}", '', '');
+	return getPortInfo ($port_id);
+}
+
 // exclude location-related object types
 function withoutLocationTypes ($objtypes)
 {

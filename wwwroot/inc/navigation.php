@@ -79,10 +79,13 @@ $page['depot']['parent'] = 'index';
 $page['depot']['title'] = 'Objects';
 $tab['depot']['default'] = 'Browse';
 $tab['depot']['addmore'] = 'Add more';
+$tab['depot']['linker'] = 'Link ports';
 $tabhandler['depot']['default'] = 'renderDepot';
 $tabhandler['depot']['addmore'] = 'renderAddMultipleObjectsForm';
+$tabhandler['depot']['linker'] = 'renderBulkLinkForm';
 $ophandler['depot']['addmore']['addObjects'] = 'addMultipleObjects';
 $ophandler['depot']['addmore']['addLotOfObjects'] = 'addLotOfObjects';
+$ophandler['depot']['linker']['link'] = 'handleBulkLinkRequest';
 
 $page['location']['bypass'] = 'location_id';
 $page['location']['bypass_type'] = 'natural';

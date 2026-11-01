@@ -9,6 +9,7 @@ upstream release 0.22.1. Compared to upstream it adds:
 - a realm registry for object type definitions;
 - SQL strict mode for database sessions;
 - hook-based port locking;
+- bulk port linking from a text list;
 - Debian packaging and GitHub Actions CI.
 
 The `master` branch is the fork's development branch. Updates from the

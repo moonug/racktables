@@ -2077,6 +2077,29 @@ function importPTRData ()
 		showFuncMessage (__FUNCTION__, 'ERR', array ($nbad, $ngood));
 }
 
+function handleBulkLinkRequest ()
+{
+	$text = assertStringArg ('in', TRUE);
+	$result = commitBulkLinks ($text);
+
+	if ($result['linked'] || $result['unlinked'])
+		showSuccess ($result['linked'] . ' ports linked, ' . $result['unlinked'] . ' unlinked');
+	if ($result['already'])
+		showNotice ($result['already'] . ' links were already in place');
+	if (! count ($result['failed']))
+		return;
+
+	$failed_text = array ();
+	foreach ($result['failed'] as $failure)
+	{
+		$failed_text[] = $failure['text'];
+		showWarning ('Line ' . $failure['line'] . ': ' . $failure['error']);
+	}
+	startSession ();
+	$_SESSION['bulk-linker-state'] = array ('text' => implode ("\n", $failed_text), 'errors' => array_column ($result['failed'], 'error'));
+	session_commit ();
+}
+
 function generateAutoPorts ()
 {
 	setFuncMessages (__FUNCTION__, array ('OK' => 21));
