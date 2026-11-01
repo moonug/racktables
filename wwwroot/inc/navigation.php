@@ -79,8 +79,10 @@ $page['depot']['parent'] = 'index';
 $page['depot']['title'] = 'Objects';
 $tab['depot']['default'] = 'Browse';
 $tab['depot']['addmore'] = 'Add more';
+$tab['depot']['attrs'] = 'Attr report';
 $tabhandler['depot']['default'] = 'renderDepot';
 $tabhandler['depot']['addmore'] = 'renderAddMultipleObjectsForm';
+$tabhandler['depot']['attrs'] = 'renderObjectAttributeReport';
 $ophandler['depot']['addmore']['addObjects'] = 'addMultipleObjects';
 $ophandler['depot']['addmore']['addLotOfObjects'] = 'addLotOfObjects';
 

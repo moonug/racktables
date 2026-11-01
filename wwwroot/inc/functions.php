@@ -5716,6 +5716,33 @@ function getPortinfoByName (&$object, $portname, $strict_mode = TRUE)
 	return $ret;
 }
 
+// Prepare the attribute columns for a filtered object list. The values are
+// fetched for the whole list at once, not one object at a time.
+function getObjectAttributeReport ($objects)
+{
+	$ret = array ('attrs' => array (), 'display' => array ());
+	if (! count ($objects))
+		return $ret;
+	$idlist = array ();
+	foreach ($objects as $object)
+		$idlist[] = $object['id'];
+	$ret['attrs'] = fetchAttrsForObjects ($idlist);
+	foreach ($objects as $object)
+	{
+		$object_id = $object['id'];
+		if (! isset ($ret['attrs'][$object_id]))
+			continue;
+		foreach ($ret['attrs'][$object_id] as $attr_id => $attr)
+			if (strlen ((string) $attr['value']))
+				$ret['display'][$attr_id] = $attr;
+	}
+	uasort ($ret['display'], function ($a, $b)
+	{
+		return strcasecmp ($a['name'], $b['name']);
+	});
+	return $ret;
+}
+
 // exclude location-related object types
 function withoutLocationTypes ($objtypes)
 {
