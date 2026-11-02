@@ -1735,14 +1735,53 @@ function tagChainCmp ($chain1, $chain2)
 	return FALSE;
 }
 
-// returns an array of tag ids that have $tagid as its parent (all levels)
-function getTagDescendents ($tagid)
+// RackCode refers to tags by name, so renaming a tag that is in use (or has
+// a used descendant) would silently change the permissions that mention it.
+function assertTagRenameAllowed ($taglist, $tag_id, $tag_name)
 {
-	global $taglist;
-	$ret = array();
-	foreach ($taglist as $id => $taginfo)
-		if (array_key_exists ('trace', $taginfo) && in_array ($tagid, $taginfo['trace']))
-			$ret[] = $id;
+	if (! isset ($taglist[$tag_id]))
+		throw new InvalidRequestArgException ('tag_id', $tag_id, 'no such tag');
+	if ($taglist[$tag_id]['tag'] === $tag_name)
+		return;
+	$descendants = getTagDescendents ($tag_id, $taglist);
+	$usage = getTagRefCounts (array_merge (array ($tag_id), $descendants));
+	if ($usage[$tag_id] > 0)
+		throw new InvalidRequestArgException ('tag_name', $tag_name, 'Used tags cannot be renamed');
+	foreach ($descendants as $descendant_id)
+		if ($usage[$descendant_id] > 0)
+			throw new InvalidRequestArgException ('tag_name', $tag_name, 'Tags with used descendants cannot be renamed');
+}
+
+// returns an array of tag ids that have $tagid as its parent (all levels)
+function getTagDescendents ($tagid, $nodelist = NULL)
+{
+	if ($nodelist === NULL)
+	{
+		global $taglist;
+		$nodelist = $taglist;
+	}
+	$children = array ();
+	foreach ($nodelist as $id => $taginfo)
+		if (isset ($taginfo['parent_id']))
+			$children[$taginfo['parent_id']][] = $id;
+	$ret = array ();
+	$queue = array ($tagid);
+	$seen = array ($tagid => TRUE);
+	// Parent pointers are walked with a visited set, so a cycle or a missing
+	// parent cannot hide a child or loop forever.
+	for ($i = 0; $i < count ($queue); $i++)
+	{
+		$id = $queue[$i];
+		if (! isset ($children[$id]))
+			continue;
+		foreach ($children[$id] as $child)
+			if (! isset ($seen[$child]))
+			{
+				$seen[$child] = TRUE;
+				$ret[] = $child;
+				$queue[] = $child;
+			}
+	}
 	return $ret;
 }
 

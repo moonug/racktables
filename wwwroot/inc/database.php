@@ -4456,6 +4456,24 @@ function getTagUsage ($ignore_cache = FALSE)
 	return $ret;
 }
 
+// Count only the tags a rename has to inspect, instead of scanning the whole
+// TagStorage table on every tag save.
+function getTagRefCounts ($tag_ids)
+{
+	$ret = array_fill_keys ($tag_ids, 0);
+	if (! count ($tag_ids))
+		return $ret;
+	$result = usePreparedSelectBlade
+	(
+		'SELECT tag_id, count(*) AS refcnt FROM TagStorage WHERE tag_id IN (' .
+		questionMarks (count ($tag_ids)) . ') GROUP BY tag_id',
+		$tag_ids
+	);
+	foreach ($result->fetchAll (PDO::FETCH_ASSOC) as $row)
+		$ret[$row['tag_id']] = (int) $row['refcnt'];
+	return $ret;
+}
+
 // Drop the whole chain stored.
 function destroyTagsForEntity ($entity_realm, $entity_id)
 {
@@ -4477,6 +4495,8 @@ function deleteTagForEntity ($entity_realm, $entity_id, $tag_id)
 
 // A tag's parent may not be one of its children, the tag itself or a tag
 // that does not belong to the forest of rooted trees because of a cycle.
+// Renaming a tag that is in use, or that has a used descendant, is refused
+// with InvalidRequestArgException.
 function commitUpdateTag ($tag_id, $tag_name, $parent_id, $is_assignable, $color = NULL)
 {
 	global $dbxlink;
@@ -4486,6 +4506,9 @@ function commitUpdateTag ($tag_id, $tag_name, $parent_id, $is_assignable, $color
 	{
 		// Use the copy from within the transaction.
 		$local_taglist = addTraceToNodes (getTagList ('FOR UPDATE'));
+		// The handler checks first to fail fast, but the rename must be
+		// refused on the same snapshot the update runs on.
+		assertTagRenameAllowed ($local_taglist, $tag_id, $tag_name);
 		assertValidParentId ($local_taglist, $tag_id, $parent_id);
 		$db_color = HTMLColorForDatabase ($color);
 		usePreparedUpdateBlade

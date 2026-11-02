@@ -2088,12 +2088,16 @@ function generateAutoPorts ()
 
 function updateTag ()
 {
+	global $taglist;
 	try
 	{
+		$tag_id = genericAssertion ('tag_id', 'natural');
+		$tag_name = genericAssertion ('tag_name', 'tag');
+		assertTagRenameAllowed ($taglist, $tag_id, $tag_name);
 		commitUpdateTag
 		(
-			genericAssertion ('tag_id', 'natural'),
-			genericAssertion ('tag_name', 'tag'),
+			$tag_id,
+			$tag_name,
 			genericAssertion ('parent_id', 'unsigned'),
 			genericAssertion ('is_assignable', 'enum/yesno'),
 			genericAssertion ('color', 'htmlcolor0')
