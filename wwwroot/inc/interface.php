@@ -3656,8 +3656,8 @@ END;
 	if ($state === NULL)
 		return;
 	echo '<ul class="validation-error">';
-	foreach ($state['errors'] as $error)
-		echo '<li>' . htmlspecialchars ($error, ENT_NOQUOTES) . '</li>';
+	foreach ($state['errors'] as $failure)
+		echo '<li>Line ' . $failure['line'] . ': ' . htmlspecialchars ($failure['error'], ENT_QUOTES, 'UTF-8') . '</li>';
 	echo '</ul>';
 }
 
