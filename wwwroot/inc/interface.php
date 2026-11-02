@@ -3626,6 +3626,42 @@ function renderNATv4ForObject ($object_id)
 	echo "</table><br><br>";
 }
 
+// $objects must already be filtered by object visibility. "columns" is the
+// ordered column set; "cells"[object_id][attr_id] says the object has a value
+// the user may print. Both decisions are made once, in the object context.
+function attributeReportColumns ($objects, $display, $attrs)
+{
+	global $pageno, $tabno;
+	// A rule may scope a deny to the page being rendered, so the attribute
+	// must also be allowed in this location.
+	$columns = array ();
+	$cells = array ();
+	foreach ($objects as $object)
+	{
+		if (! isset ($attrs[$object['id']]))
+			continue;
+		$context = getContext ();
+		try
+		{
+			fixContext ($object);
+			foreach ($display as $attr_id => $attr)
+				if (isset ($attrs[$object['id']][$attr_id]) &&
+					permitted ($pageno, $tabno, NULL, array (array ('tag' => '$attr_' . $attr_id))) &&
+					permitted ('object', 'default', NULL, array (array ('tag' => '$attr_' . $attr_id))))
+				{
+					$columns[$attr_id] = $attr;
+					$cells[$object['id']][$attr_id] = TRUE;
+				}
+		}
+		finally
+		{
+			restoreContext ($context);
+		}
+	}
+	// array_intersect_key keeps the order of the attribute list.
+	return array ('columns' => array_intersect_key ($display, $columns), 'cells' => $cells);
+}
+
 function renderObjectAttributeReport ()
 {
 	global $pageno, $tabno, $nextorder;
@@ -3642,32 +3678,62 @@ function renderObjectAttributeReport ()
 		$objects = applyCellFilter ('object', $cellfilter);
 		if (! renderEmptyResults ($cellfilter, 'objects', count ($objects)))
 		{
-			$report = getObjectAttributeReport ($objects);
-			startPortlet ('Objects (' . count ($objects) . ')');
+			// Resolve visibility once: the count, the columns and the rows
+			// must all describe the same list.
+			$visible = array ();
+			foreach ($objects as $object)
+			{
+				$context = getContext ();
+				try
+				{
+					fixContext ($object);
+					// Visibility is the object page's view plus the rules
+					// scoped to the page and tab being rendered.
+					if (permitted ('object', 'default') && permitted ($pageno, $tabno))
+						$visible[] = $object;
+				}
+				finally
+				{
+					restoreContext ($context);
+				}
+			}
+			$report = getObjectAttributeReport ($visible);
+			$columns = attributeReportColumns ($visible, $report['display'], $report['attrs']);
+			$report['display'] = $columns['columns'];
+			startPortlet ('Objects (' . count ($visible) . ')');
 			echo '<br><br><table border=0 cellpadding=5 cellspacing=0 align=center class=cooltable>';
 			echo '<tr><th>Common name</th>';
 			foreach ($report['display'] as $attr)
 				echo '<th>' . htmlspecialchars ($attr['name']) . '</th>';
 			echo '</tr>';
 			$order = 'odd';
-			foreach ($objects as $object)
+			foreach ($visible as $object)
 			{
+				// The values are formatted in the object context: the FQDN
+				// branch evaluates RackCode from MGMT_PROTOS.
 				$context = getContext ();
-				fixContext ($object);
-				echo "<tr class='row_${order} tdleft' valign=top><td>" . mkA ('<strong>' . $object['dname'] . '</strong>', 'object', $object['id']);
-				if (count ($object['etags']))
-					echo '<br><small>' . serializeTags ($object['etags'], makeHref (array ('page' => $pageno, 'tab' => $tabno)) . '&') . '</small>';
-				echo '</td>';
-				foreach ($report['display'] as $attr_id => $attr)
+				try
 				{
-					echo '<td>';
-					if (isset ($report['attrs'][$object['id']][$attr_id]) && strlen ((string) $report['attrs'][$object['id']][$attr_id]['value']))
-						echo formatAttributeValue ($report['attrs'][$object['id']][$attr_id], $object['objtype_id']);
+					fixContext ($object);
+					echo "<tr class='row_${order} tdleft' valign=top><td>" .
+						mkA ('<strong>' . htmlspecialchars ($object['dname'], ENT_QUOTES, 'UTF-8') . '</strong>', 'object', $object['id']);
+					if (count ($object['etags']))
+						echo '<br><small>' . serializeTags ($object['etags'], makeHref (array ('page' => $pageno, 'tab' => $tabno)) . '&') . '</small>';
 					echo '</td>';
+					foreach ($report['display'] as $attr_id => $attr)
+					{
+						echo '<td>';
+						if (isset ($columns['cells'][$object['id']][$attr_id], $report['attrs'][$object['id']][$attr_id]))
+							echo formatAttributeValue ($report['attrs'][$object['id']][$attr_id], $object['objtype_id']);
+						echo '</td>';
+					}
+					echo '</tr>';
 				}
-				echo '</tr>';
+				finally
+				{
+					restoreContext ($context);
+				}
 				$order = $nextorder[$order];
-				restoreContext ($context);
 			}
 			echo '</table>';
 			finishPortlet ();
@@ -6104,7 +6170,7 @@ function formatAttributeValue ($record, $objtype_id)
 	{
 	case 'uint':
 	case 'float':
-		return $record['value'];
+		return htmlspecialchars ((string) $record['value'], ENT_QUOTES, 'UTF-8');
 	case 'date':
 		return sprintf
 		(
@@ -6120,7 +6186,9 @@ function formatAttributeValue ($record, $objtype_id)
 					if (considerGivenConstraint (NULL, $filter))
 					{
 						$blank = (preg_match ('/^https?$/', $proto) ? 'target=_blank' : '');
-						return "<a $blank title='Open $proto session' class='mgmt-link' href='" . $proto . '://' . $record['a_value'] . "'>${record['a_value']}</a>";
+						$href = htmlspecialchars ($proto . '://' . $record['a_value'], ENT_QUOTES, 'UTF-8');
+						$text = htmlspecialchars ((string) $record['a_value'], ENT_QUOTES, 'UTF-8');
+						return "<a $blank title='Open $proto session' class='mgmt-link' href='${href}'>${text}</a>";
 					}
 				}
 				catch (RackTablesError $e)
@@ -6132,9 +6200,10 @@ function formatAttributeValue ($record, $objtype_id)
 					showWarning ("could not parse '${filter}' for management protocol '${proto}' in MGMT_PROTOS");
 					continue;
 				}
+		$text = htmlspecialchars ((string) $record['a_value'], ENT_QUOTES, 'UTF-8');
 		return array_key_exists ('href', $record) ?
-			"<a href='${record['href']}'>${record['a_value']}</a>" :
-			$record['a_value'];
+			"<a href='" . htmlspecialchars ($record['href'], ENT_QUOTES, 'UTF-8') . "'>${text}</a>" :
+			$text;
 	case 'dict':
 		$map = array
 		(
@@ -6148,8 +6217,9 @@ function formatAttributeValue ($record, $objtype_id)
 			1561 => NULL,
 			1562 => NULL,
 		);
+		$text = htmlspecialchars ((string) $record['a_value'], ENT_QUOTES, 'UTF-8');
 		if (NULL === $filter_pageno = array_fetch ($map, $objtype_id, 'depot'))
-			$result = $record['a_value'];
+			$result = $text;
 		else
 		{
 			$filter_args = array
@@ -6159,11 +6229,13 @@ function formatAttributeValue ($record, $objtype_id)
 				'andor' => 'and',
 				'cfe' => '{$attr_' . $record['id'] . '_' . $record['key'] . '}',
 			);
-			$filter_url = makeHref ($filter_args);
-			$result = "<a href='${filter_url}'>${record['a_value']}</a>";
+			$filter_url = htmlspecialchars (makeHref ($filter_args), ENT_QUOTES, 'UTF-8');
+			$result = "<a href='${filter_url}'>${text}</a>";
 		}
 		if (array_key_exists ('href', $record))
-			$result .= "&nbsp;<a class='img-link' href='${record['href']}'>" . getImageHREF ('html', 'vendor\'s info page') . "</a>";
+			$result .= "&nbsp;<a class='img-link' href='" .
+				htmlspecialchars ($record['href'], ENT_QUOTES, 'UTF-8') . "'>" .
+				getImageHREF ('html', 'vendor\'s info page') . "</a>";
 		return $result;
 	default:
 		throw new InvalidArgException ('record[type]', $record['type']);
