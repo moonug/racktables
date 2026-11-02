@@ -2077,6 +2077,33 @@ function importPTRData ()
 		showFuncMessage (__FUNCTION__, 'ERR', array ($nbad, $ngood));
 }
 
+function handleBulkLinkRequest ()
+{
+	$text = assertStringArg ('in', TRUE);
+	$result = commitBulkLinks ($text);
+
+	if ($result['linked'] || $result['unlinked'] || $result['updated'])
+	{
+		$summary = $result['linked'] . ' ports linked, ' . $result['unlinked'] . ' unlinked';
+		if ($result['updated'])
+			$summary .= ', ' . $result['updated'] . ' cables updated';
+		showSuccess ($summary);
+	}
+	if ($result['already'])
+		showNotice ($result['already'] . ' links were already in place');
+	if (! $result['linked'] && ! $result['unlinked'] && ! $result['already'] && ! $result['updated'] && ! count ($result['failed']))
+		showNotice ('Nothing to do');
+	if (! count ($result['failed']))
+		return;
+
+	// Keep the errors in plain text: the form escapes them, the message bar
+	// does not, and the submitted lines carry user-supplied names.
+	startSession ();
+	$_SESSION['bulk-linker-state'] = array ('text' => $text, 'errors' => $result['failed']);
+	session_commit ();
+	showWarning (count ($result['failed']) . ' lines failed, see the form below');
+}
+
 function generateAutoPorts ()
 {
 	setFuncMessages (__FUNCTION__, array ('OK' => 21));
