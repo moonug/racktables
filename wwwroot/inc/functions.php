@@ -1735,14 +1735,53 @@ function tagChainCmp ($chain1, $chain2)
 	return FALSE;
 }
 
-// returns an array of tag ids that have $tagid as its parent (all levels)
-function getTagDescendents ($tagid)
+// RackCode refers to tags by name, so renaming a tag that is in use (or has
+// a used descendant) would silently change the permissions that mention it.
+function assertTagRenameAllowed ($taglist, $tag_id, $tag_name)
 {
-	global $taglist;
-	$ret = array();
-	foreach ($taglist as $id => $taginfo)
-		if (array_key_exists ('trace', $taginfo) && in_array ($tagid, $taginfo['trace']))
-			$ret[] = $id;
+	if (! isset ($taglist[$tag_id]))
+		throw new InvalidRequestArgException ('tag_id', $tag_id, 'no such tag');
+	if ($taglist[$tag_id]['tag'] === $tag_name)
+		return;
+	$descendants = getTagDescendents ($tag_id, $taglist);
+	$usage = getTagRefCounts (array_merge (array ($tag_id), $descendants));
+	if ($usage[$tag_id] > 0)
+		throw new InvalidRequestArgException ('tag_name', $tag_name, 'Used tags cannot be renamed');
+	foreach ($descendants as $descendant_id)
+		if ($usage[$descendant_id] > 0)
+			throw new InvalidRequestArgException ('tag_name', $tag_name, 'Tags with used descendants cannot be renamed');
+}
+
+// returns an array of tag ids that have $tagid as its parent (all levels)
+function getTagDescendents ($tagid, $nodelist = NULL)
+{
+	if ($nodelist === NULL)
+	{
+		global $taglist;
+		$nodelist = $taglist;
+	}
+	$children = array ();
+	foreach ($nodelist as $id => $taginfo)
+		if (isset ($taginfo['parent_id']))
+			$children[$taginfo['parent_id']][] = $id;
+	$ret = array ();
+	$queue = array ($tagid);
+	$seen = array ($tagid => TRUE);
+	// Parent pointers are walked with a visited set, so a cycle or a missing
+	// parent cannot hide a child or loop forever.
+	for ($i = 0; $i < count ($queue); $i++)
+	{
+		$id = $queue[$i];
+		if (! isset ($children[$id]))
+			continue;
+		foreach ($children[$id] as $child)
+			if (! isset ($seen[$child]))
+			{
+				$seen[$child] = TRUE;
+				$ret[] = $child;
+				$queue[] = $child;
+			}
+	}
 	return $ret;
 }
 
@@ -5714,6 +5753,57 @@ function getPortinfoByName (&$object, $portname, $strict_mode = TRUE)
 		elseif (isset ($ret))
 			break;
 	return $ret;
+}
+
+// Prepare the attribute columns for a filtered object list. The values are
+// fetched for the whole list at once, not one object at a time. "attrs" is
+// not permission-filtered: print only cells allowed by attributeReportColumns().
+function getObjectAttributeReport ($objects)
+{
+	$ret = array ('attrs' => array (), 'display' => array ());
+	if (! count ($objects))
+		return $ret;
+	$idlist = array ();
+	foreach ($objects as $object)
+		$idlist[] = $object['id'];
+	$attrs = fetchAttrsForObjects ($idlist);
+	foreach ($objects as $object)
+	{
+		$object_id = $object['id'];
+		if (! isset ($attrs[$object_id]))
+			continue;
+		foreach ($attrs[$object_id] as $attr_id => $attr)
+			if (attributeValueIsSet ($attr))
+				$ret['display'][$attr_id] = array ('id' => $attr_id, 'name' => $attr['name']);
+	}
+	// Keep only the records with a printable value; permission filtering is
+	// the renderer's job.
+	foreach ($attrs as $object_id => $records)
+	{
+		foreach ($records as $attr_id => $attr)
+			if (! attributeValueIsSet ($attr))
+				unset ($attrs[$object_id][$attr_id]);
+		if (! count ($attrs[$object_id]))
+			unset ($attrs[$object_id]);
+	}
+	$ret['attrs'] = $attrs;
+
+	// Order the columns the same way the object pages order attributes.
+	$result = usePreparedSelectBlade ('SELECT id FROM Attribute ORDER by name');
+	$order = array ();
+	$i = 0;
+	foreach ($result->fetchAll (PDO::FETCH_COLUMN, 0) as $attr_id)
+		$order[$attr_id] = $i++;
+	$ret['display'] = customKsort ($ret['display'], $order);
+	return $ret;
+}
+
+// Whether the report has a value to print. Prefer the rendered form, so a
+// value fully consumed by a marker does not produce an empty cell.
+function attributeValueIsSet ($attr)
+{
+	$value = array_key_exists ('a_value', $attr) ? $attr['a_value'] : $attr['value'];
+	return $value !== NULL && (string) $value !== '';
 }
 
 // Parse one line of the bulk port linker form.
